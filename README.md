@@ -20,7 +20,7 @@ Flow 01 - Find completed meetings
 | `ECL_Handoff_MeetingSummaryFlow_07082026.docx` | Handoff document for the meeting-summary flow. |
 | `ecl-meeting-summary-orchestrator/` | Codex skill instructions for planning, validating, troubleshooting, and coordinating this implementation safely. |
 | `ecl-meeting-summary-orchestrator/references/delegated-poc.md` | Delegated proof-of-concept procedure and acceptance checks. |
-| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Read-only Microsoft Graph MCP helper for delegated transcript proof-of-concept work. |
+| `plugins/ecl-power-automate-mcp/` | Codex plugin wrapper for the upstream `powerautomate-mcp` Power Platform MCP server. |
 
 ## Target Outcome
 

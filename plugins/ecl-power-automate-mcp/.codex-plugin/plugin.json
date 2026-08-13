@@ -1,19 +1,20 @@
 {
   "name": "ecl-power-automate-mcp",
-  "version": "0.1.0",
-  "description": "Read-only delegated Microsoft Graph tools for the ECL meeting-summary proof of concept.",
+  "version": "0.2.0",
+  "description": "Codex plugin wrapper for the upstream powerautomate-mcp Power Platform MCP server.",
   "author": {
     "name": "Local developer"
   },
-  "skills": "./skills/",
   "interface": {
     "displayName": "ECL Power Automate MCP",
-    "shortDescription": "Read delegated Teams transcript data",
-    "longDescription": "Provides read-only Microsoft Graph tools for the ECL Teams transcript proof of concept.",
+    "shortDescription": "Run the upstream Power Platform MCP",
+    "longDescription": "Launches the npm powerautomate-mcp server for AI-assisted Power Automate and Power Platform authoring, debugging, data, and administration workflows.",
     "developerName": "Local developer",
     "category": "Productivity",
-    "capabilities": ["Interactive"],
-    "defaultPrompt": "Use ECL Power Automate MCP to retrieve a transcript from one of my scheduled Teams meetings."
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": "Use Power Automate MCP to inspect my Power Platform environment and help build or debug flows."
   },
   "mcpServers": "./.mcp.json"
 }
