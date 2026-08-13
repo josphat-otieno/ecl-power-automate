@@ -1,12 +1,16 @@
 {
   "mcpServers": {
-    "ecl-graph-transcripts": {
-      "command": "node",
-      "args": ["./scripts/graph-readonly-mcp.mjs"],
+    "powerautomate-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "powerautomate-mcp@latest"
+      ],
       "env": {
-        "ECL_GRAPH_ACCESS_TOKEN": "${ECL_GRAPH_ACCESS_TOKEN}",
-        "ECL_ENTRA_CLIENT_ID": "${ECL_ENTRA_CLIENT_ID}",
-        "ECL_ENTRA_TENANT_ID": "${ECL_ENTRA_TENANT_ID}"
+        "PA_MCP_CLIENT_ID": "${PA_MCP_CLIENT_ID}",
+        "PA_MCP_TENANT_ID": "${PA_MCP_TENANT_ID}",
+        "PA_MCP_ENVIRONMENT_ID": "${PA_MCP_ENVIRONMENT_ID}",
+        "PA_MCP_ENVIRONMENT_REGION": "${PA_MCP_ENVIRONMENT_REGION}"
       }
     }
   }
