@@ -1,0 +1,4 @@
+interface:
+  display_name: "ECL Meeting Summary Orchestrator"
+  short_description: "Coordinate ECL meeting-summary implementation"
+  default_prompt: "Use $ecl-meeting-summary-orchestrator to determine the next safe action for the ECL meeting-summary flow."

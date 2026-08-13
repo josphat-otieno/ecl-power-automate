@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "ecl-graph-transcripts": {
+      "command": "node",
+      "args": ["./scripts/graph-readonly-mcp.mjs"],
+      "env": {
+        "ECL_GRAPH_ACCESS_TOKEN": "${ECL_GRAPH_ACCESS_TOKEN}",
+        "ECL_ENTRA_CLIENT_ID": "${ECL_ENTRA_CLIENT_ID}",
+        "ECL_ENTRA_TENANT_ID": "${ECL_ENTRA_TENANT_ID}"
+      }
+    }
+  }
+}

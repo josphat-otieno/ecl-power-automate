@@ -1,0 +1,19 @@
+{
+  "name": "ecl-power-automate-mcp",
+  "version": "0.1.0",
+  "description": "Read-only delegated Microsoft Graph tools for the ECL meeting-summary proof of concept.",
+  "author": {
+    "name": "Local developer"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ECL Power Automate MCP",
+    "shortDescription": "Read delegated Teams transcript data",
+    "longDescription": "Provides read-only Microsoft Graph tools for the ECL Teams transcript proof of concept.",
+    "developerName": "Local developer",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "defaultPrompt": "Use ECL Power Automate MCP to retrieve a transcript from one of my scheduled Teams meetings."
+  },
+  "mcpServers": "./.mcp.json"
+}
