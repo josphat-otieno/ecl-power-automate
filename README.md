@@ -20,7 +20,10 @@ Flow 01 - Find completed meetings
 | `ECL_Handoff_MeetingSummaryFlow_07082026.docx` | Handoff document for the meeting-summary flow. |
 | `ecl-meeting-summary-orchestrator/` | Codex skill instructions for planning, validating, troubleshooting, and coordinating this implementation safely. |
 | `ecl-meeting-summary-orchestrator/references/delegated-poc.md` | Delegated proof-of-concept procedure and acceptance checks. |
-| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Read-only Microsoft Graph MCP helper for delegated transcript proof-of-concept work. |
+| `ecl-meeting-summary-orchestrator/references/admin-pending-next-steps.md` | Safe implementation-prep work to do while admin consent and production approval are pending. |
+| `ecl-meeting-summary-orchestrator/references/flow-build-checklists.md` | Flow-by-flow build checklists for Power Automate implementation. |
+| `ecl-meeting-summary-orchestrator/references/llm-validation.md` | Prompt, JSON schema, and synthetic transcript validation guidance. |
+| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Local ECL-only Graph transcript helper; separate from the external `powerautomate-mcp` / Power Platform MCP track. |
 
 ## Target Outcome
 
@@ -102,6 +105,10 @@ OnlineMeetingTranscript.Read.All
 ```
 
 See `ecl-meeting-summary-orchestrator/references/delegated-poc.md` for the detailed POC sequence and acceptance checks.
+
+While admin consent or approval is pending, use `ecl-meeting-summary-orchestrator/references/admin-pending-next-steps.md` to focus on reusable skills, flow checklists, synthetic validation, prompt/schema work, and approval evidence rather than live tenant changes.
+
+The external `powerautomate-mcp` / Power Platform MCP integration should come after the delegated POC proves the core flow. Until then, keep third-party MCP work parked and focus on implementation readiness, synthetic validation, and approval evidence. The local `ecl-power-automate-mcp` helper remains separate and should not be treated as the future Power Platform MCP integration.
 
 ## Microsoft Graph Custom Connector
 
