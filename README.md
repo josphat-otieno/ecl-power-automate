@@ -40,7 +40,6 @@ Each file is a self-contained implementation reference for one concern.
 
 | File | Covers |
 |---|---|
-| `admin-application-rights-granted.md` | Safe preparation work to do while admin consent is pending (schema, scripts, prompts). |
 | `approval-and-sharepoint-publication.md` | Flow 04 — Teams Adaptive Card approval, Outlook email notification, and HTML publication to SharePoint. |
 | `build-checklists.md` | Step-by-step build checklists for each flow, with accept/reject checks. |
 | `delegated-proof-of-concept.md` | Delegated POC sequence and acceptance criteria before productionising. |
@@ -183,7 +182,6 @@ OnlineMeetingTranscript.Read.All
 
 See `ecl-meeting-summary-orchestrator/references/delegated-proof-of-concept.md` for the full POC sequence and acceptance checks.
 
-While admin consent or approval is pending, use `ecl-meeting-summary-orchestrator/references/admin-application-rights-granted.md` to focus on reusable references, flow checklists, synthetic validation, prompt/schema work, and approval evidence rather than live tenant changes.
 
 ---
 
