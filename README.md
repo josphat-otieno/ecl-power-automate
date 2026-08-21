@@ -12,6 +12,9 @@ Flow 01 - Find completed meetings
     -> Optional Flow 05 - Log approved summary in Odoo
 ```
 
+> [!NOTE]
+> **Agent-Driven Cloud Automation Status:** Automated cloud provisioning and agent-driven infrastructure/Power Platform mutations are currently **pending** until the delegated proof of concept and current solution assets receive formal architectural, security, and administrative approval.
+
 ---
 
 ## Repository Contents
@@ -218,6 +221,7 @@ The POC must:
 - use the meeting organiser's delegated Microsoft 365 identity only;
 - process only scheduled test meetings owned by that organiser;
 - avoid tenant-wide application permissions;
+- keep agent-driven cloud automation and automated environment provisioning on hold until the current delegated slice is approved;
 - avoid production Odoo writes;
 - store secrets only in Key Vault or another approved secret store;
 - use an approved Azure OpenAI route for client or citizen data; and
