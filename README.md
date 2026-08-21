@@ -83,6 +83,56 @@ node scripts/run-pipeline-test.js
 ```
 Expected output: all 5 stages PASS and an HTML approval document written to `test-fixtures/pipeline-output.html`.
 
+### Delegated Graph MCP Tool — `plugins/ecl-power-automate-mcp/`
+
+A local, read-only MCP server (`ecl-graph-transcripts`) used to test delegated Microsoft Graph meeting and transcript retrieval before building or deploying Power Automate flows.
+
+| Path | Purpose |
+|---|---|
+| `plugins/ecl-power-automate-mcp/.mcp.json` | MCP server configuration mapping `ecl-graph-transcripts` to `node ./scripts/graph-readonly-mcp.mjs`. |
+| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Node.js MCP server implementing Entra ID device-code sign-in and Graph `/me/onlineMeetings` transcript retrieval. |
+
+#### Available MCP Tools
+
+| Tool | Description | Parameters |
+|---|---|---|
+| `begin_delegated_sign_in` | Requests an Entra ID device code with scopes (`User.Read`, `OnlineMeetings.Read`, `OnlineMeetingTranscript.Read.All`). | *(none)* |
+| `complete_delegated_sign_in` | Finalizes authentication once the user completes the browser sign-in. | *(none)* |
+| `get_current_user` | Returns the authenticated organizer identity (`/me?$select=id,displayName,userPrincipalName`). | *(none)* |
+| `resolve_meeting_by_join_url` | Resolves a Teams online meeting record using its join URL. | `join_url` (string) |
+| `list_meeting_transcripts` | Lists available transcript IDs for a given meeting. | `meeting_id` (string) |
+| `get_transcript_vtt` | Fetches the raw WebVTT transcript content for cleaning and summarisation. | `meeting_id` (string), `transcript_id` (string) |
+
+#### How to Use Device-Code Sign-In
+
+1. **Set Environment Variables:**
+   Supply your Entra ID application registration details to the MCP host / environment:
+   ```bash
+   export ECL_ENTRA_CLIENT_ID="<your-entra-client-id>"
+   export ECL_ENTRA_TENANT_ID="<your-entra-tenant-id>"
+   ```
+   *(Alternatively, provide a pre-existing token via `export ECL_GRAPH_ACCESS_TOKEN="<token>"`).*
+
+2. **Initiate Sign-In:**
+   Call `begin_delegated_sign_in`. The tool returns a message with a verification URL and user code:
+   ```text
+   To sign in, use a web browser to open the page https://microsoft.com/devicelogin and enter the code XXXXXXXX to authenticate.
+   ```
+
+3. **Authenticate in Browser:**
+   - Open `https://microsoft.com/devicelogin` in your browser.
+   - Enter the code displayed.
+   - Sign in using the meeting organizer's Microsoft 365 account and consent to the requested read-only scopes.
+
+4. **Complete Sign-In:**
+   Call `complete_delegated_sign_in`. The tool exchanges the device code for a session access token.
+
+5. **Verify & Retrieve Transcripts:**
+   - Call `get_current_user` to verify the organizer identity.
+   - Call `resolve_meeting_by_join_url` with the Teams meeting join link.
+   - Call `list_meeting_transcripts` with the returned `meeting_id`.
+   - Call `get_transcript_vtt` with the `meeting_id` and `transcript_id` to download the transcript.
+
 ---
 
 ### Test Fixtures — `test-fixtures/`
@@ -95,9 +145,9 @@ Synthetic data for local dry-run validation — no live tenant credentials requi
 | `pipeline-summary.json` | Synthetic structured `SummaryJson` with recap, decisions, action items, open questions, and warnings. |
 | `pipeline-output.html` | Generated HTML approval document produced by the last pipeline test run. |
 
-## Target Outcome
+---
 
-The automation should:
+## Target Outcome
 
 - detect completed Teams meetings;
 - resolve the Microsoft Graph online meeting record;
