@@ -1,0 +1,15 @@
+# Credentials and environment
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+
+# Meeting handoff documents
+ECL_Handoff_MeetingSummaryFlow_07082026.docx
+*.docx
+git 
