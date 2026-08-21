@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "solution": {
+    "uniqueName": "ECLMeetingSummary",
+    "displayName": "ECL Meeting Summary",
+    "version": "1.0.0.0",
+    "publisher": {
+      "uniqueName": "Elewa",
+      "displayName": "Elewa",
+      "prefix": "ecl"
+    },
+    "environmentVariables": [
+      { "name": "ecl_GraphBaseUrl", "displayName": "Graph Base URL", "type": "String", "default": "https://graph.microsoft.com/v1.0" },
+      { "name": "ecl_TranscriptInitialDelayMinutes", "displayName": "Transcript Initial Delay (Minutes)", "type": "Number", "default": 15 },
+      { "name": "ecl_TranscriptRetryDelayMinutes", "displayName": "Transcript Retry Delay (Minutes)", "type": "Number", "default": 5 },
+      { "name": "ecl_TranscriptMaximumAttempts", "displayName": "Transcript Maximum Attempts", "type": "Number", "default": 6 },
+      { "name": "ecl_TranscriptChunkMaximumCharacters", "displayName": "Transcript Chunk Maximum Characters", "type": "Number", "default": 12000 },
+      { "name": "ecl_LlmEndpoint", "displayName": "LLM Endpoint", "type": "String", "default": "https://your-resource.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-08-01-preview" },
+      { "name": "ecl_LlmModelDeployment", "displayName": "LLM Model Deployment", "type": "String", "default": "gpt-4o" },
+      { "name": "ecl_LlmSecretName", "displayName": "LLM Secret Name", "type": "String", "default": "ECL-AzureOpenAI-ApiKey" },
+      { "name": "ecl_KeyVaultName", "displayName": "Key Vault Name", "type": "String", "default": "kv-ecl-prod" },
+      { "name": "ecl_SharePointSiteUrl", "displayName": "SharePoint Site URL", "type": "String", "default": "https://elewa.sharepoint.com/sites/ECLAutomations" },
+      { "name": "ecl_ProcessingListName", "displayName": "Processing List Name", "type": "String", "default": "MeetingSummaryRuns" },
+      { "name": "ecl_SummaryLibraryName", "displayName": "Summary Library Name", "type": "String", "default": "Meeting Summaries" }
+    ],
+    "connectionReferences": [
+      { "name": "ecl_shared_office365", "displayName": "Office 365 Outlook Connection", "connectorId": "shared_office365" },
+      { "name": "ecl_shared_sharepointonline", "displayName": "SharePoint Connection", "connectorId": "shared_sharepointonline" },
+      { "name": "ecl_shared_approvals", "displayName": "Approvals Connection", "connectorId": "shared_approvals" },
+      { "name": "ecl_shared_azurekeyvault", "displayName": "Azure Key Vault Connection", "connectorId": "shared_azurekeyvault" },
+      { "name": "ecl_shared_http", "displayName": "HTTP Connection", "connectorId": "shared_http" },
+      { "name": "ecl_shared_graphconnector", "displayName": "Graph Meetings Custom Connector", "connectorId": "ecl_microsoft_graph_meetings" }
+    ],
+    "flows": [
+      { "id": "ECL-MS-01", "name": "ECL-MS-01 – Dispatch Completed Meetings", "type": "Scheduled" },
+      { "id": "ECL-MS-02", "name": "ECL-MS-02 – Retrieve Teams Transcript", "type": "Automated" },
+      { "id": "ECL-MS-03", "name": "ECL-MS-03 – Summarise Meeting Transcript", "type": "ChildFlow" },
+      { "id": "ECL-MS-04", "name": "ECL-MS-04 – Approve and Publish Summary", "type": "Automated" },
+      { "id": "ECL-MS-05", "name": "ECL-MS-05 – Log Approved Summary in Odoo", "type": "ChildFlow", "optional": true }
+    ]
+  }
+}

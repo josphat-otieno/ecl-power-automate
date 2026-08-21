@@ -1,0 +1,101 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.4",
+  "body": [
+    {
+      "type": "TextBlock",
+      "size": "Large",
+      "weight": "Bolder",
+      "text": "📋 Meeting Summary Review",
+      "color": "Accent"
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Meeting:",
+          "value": "${title}"
+        },
+        {
+          "title": "Date:",
+          "value": "${event_date}"
+        },
+        {
+          "title": "Organiser:",
+          "value": "${organiser_email}"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "📌 **Recap**",
+      "wrap": true,
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${recap}",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "✅ **Decisions**",
+      "wrap": true,
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${decisions_text}",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "🚀 **Action Items**",
+      "wrap": true,
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${action_items_text}",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "❓ **Open Questions**",
+      "wrap": true,
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${open_questions_text}",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "⚠️ **Warnings / Notes**",
+      "wrap": true,
+      "weight": "Bolder",
+      "spacing": "Medium",
+      "$when": "${count(warnings) > 0}"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${warnings_text}",
+      "wrap": true,
+      "color": "Warning",
+      "$when": "${count(warnings) > 0}"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "View in SharePoint",
+      "url": "${item_url}"
+    }
+  ]
+}

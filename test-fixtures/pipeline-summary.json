@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "title": "ECL Sprint Planning — 21 August 2026",
+    "event_date": "2026-08-21",
+    "organiser_email": "josephat@elewa.co.ke",
+    "generated_on": "2026-08-21"
+  },
+  "summary": {
+    "recap": "The team reviewed the SharePoint schema, confirmed the Graph connector base64 decode requirement for VTT content, and agreed on a dual-channel approval notification approach (Teams Adaptive Card and email). Action items and an open question around approval timeouts were captured.",
+    "decisions": [
+      {
+        "decision": "AttemptCount will remain uncapped in SharePoint but Flow 02 will stop retrying once it hits the TranscriptMaximumAttempts threshold.",
+        "made_by": "Josephat Otieno",
+        "evidence": "Let's keep AttemptCount uncapped in SharePoint but Flow 02 should stop retrying once it hits the TranscriptMaximumAttempts threshold."
+      },
+      {
+        "decision": "Approval notifications will be sent via both Teams Adaptive Card (Approvals connector) and a separate Outlook email to the organiser.",
+        "made_by": "Josephat Otieno",
+        "evidence": "Both. The Approvals connector handles Teams cards automatically, and we will add a separate email action for visibility."
+      }
+    ],
+    "action_items": [
+      {
+        "task": "Update the build checklist to reflect the AttemptCount capping behaviour in Flow 02.",
+        "owner": "Alice Mwangi",
+        "due_date": null,
+        "evidence": "Agreed. I will update the build checklist to reflect that."
+      },
+      {
+        "task": "Document the base64 decode requirement for GetTranscriptContent in the transcript retrieval reference.",
+        "owner": "Brian Ochieng",
+        "due_date": "2026-08-21",
+        "evidence": "Will do, I will add it by end of day today."
+      },
+      {
+        "task": "Document the approval timeout question in the approval reference document.",
+        "owner": "Brian Ochieng",
+        "due_date": null,
+        "evidence": "I will note that as an open question in the approval reference doc."
+      }
+    ],
+    "open_questions": [
+      {
+        "question": "What happens if the meeting organiser is on leave and does not respond within the approval timeout window?",
+        "owner": "Josephat Otieno",
+        "evidence": "What happens if the organiser is on leave and does not respond within the approval timeout window?"
+      }
+    ],
+    "warnings": [
+      "Approval timeout handling is not yet implemented. Status will remain PendingApproval until resolved in a future sprint."
+    ]
+  }
+}

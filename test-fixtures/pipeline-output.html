@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECL Sprint Planning — 21 August 2026 - Summary</title>
+  <style>
+    :root {
+      --primary-color: #1e3a8a;
+      --primary-light: #eff6ff;
+      --text-main: #1f2937;
+      --text-muted: #6b7280;
+      --border-color: #e5e7eb;
+      --warning-bg: #fffbeb;
+      --warning-border: #fef3c7;
+      --warning-text: #92400e;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text-main);
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background-color: #f9fafb;
+    }
+    .container {
+      background: #ffffff;
+      padding: 36px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      border: 1px solid var(--border-color);
+    }
+    header {
+      border-bottom: 2px solid var(--primary-light);
+      padding-bottom: 20px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      color: var(--primary-color);
+      margin: 0 0 10px 0;
+      font-size: 26px;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      font-size: 14px;
+      color: var(--text-muted);
+      background-color: var(--primary-light);
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+    .meta-item strong {
+      color: var(--text-main);
+    }
+    h2 {
+      color: var(--primary-color);
+      font-size: 18px;
+      margin-top: 32px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--primary-color);
+      padding-left: 10px;
+    }
+    .recap-box {
+      background-color: #f8fafc;
+      padding: 16px 20px;
+      border-radius: 8px;
+      border-left: 4px solid #3b82f6;
+      font-size: 15px;
+    }
+    .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .summary-table th, .summary-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .summary-table th {
+      background-color: #f8fafc;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .evidence-cell {
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .owner-badge {
+      background-color: #e0f2fe;
+      color: #0369a1;
+    }
+    .date-badge {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    .questions-list {
+      padding-left: 20px;
+    }
+    .questions-list li {
+      margin-bottom: 12px;
+    }
+    .evidence-block {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .warnings-box {
+      background-color: var(--warning-bg);
+      border: 1px solid var(--warning-border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 28px;
+    }
+    .warnings-box h3 {
+      color: var(--warning-text);
+      margin: 0 0 8px 0;
+      font-size: 15px;
+    }
+    .warnings-box ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--warning-text);
+      font-size: 14px;
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      font-size: 14px;
+    }
+    footer {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ECL Sprint Planning — 21 August 2026</h1>
+      <div class="meta-grid">
+        <div class="meta-item"><strong>Date:</strong> 2026-08-21</div>
+        <div class="meta-item"><strong>Organiser:</strong> josephat@elewa.co.ke</div>
+        <div class="meta-item"><strong>Generated:</strong> 2026-08-21</div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Executive Recap</h2>
+      <div class="recap-box">
+        The team reviewed the SharePoint schema, confirmed the Graph connector base64 decode requirement for VTT content, and agreed on a dual-channel approval notification approach (Teams Adaptive Card and email). Action items and an open question around approval timeouts were captured.
+      </div>
+    </section>
+
+    <section>
+      <h2>Key Decisions</h2>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Decision</th>
+            <th>Made By</th>
+            <th>Evidence Snippet</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><strong>AttemptCount will remain uncapped in SharePoint but Flow 02 will stop retrying once it hits the TranscriptMaximumAttempts threshold.</strong></td>
+              <td>Josephat Otieno</td>
+              <td class="evidence-cell"><em>"Let&#039;s keep AttemptCount uncapped in SharePoint but Flow 02 should stop retrying once it hits the TranscriptMaximumAttempts threshold."</em></td>
+            </tr>
+          
+            <tr>
+              <td><strong>Approval notifications will be sent via both Teams Adaptive Card (Approvals connector) and a separate Outlook email to the organiser.</strong></td>
+              <td>Josephat Otieno</td>
+              <td class="evidence-cell"><em>"Both. The Approvals connector handles Teams cards automatically, and we will add a separate email action for visibility."</em></td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Action Items</h2>
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Task</th>
+            <th>Owner</th>
+            <th>Due Date</th>
+            <th>Evidence Snippet</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td><strong>Update the build checklist to reflect the AttemptCount capping behaviour in Flow 02.</strong></td>
+              <td><span class="badge owner-badge">Alice Mwangi</span></td>
+              <td><span class="badge date-badge">TBD</span></td>
+              <td class="evidence-cell"><em>"Agreed. I will update the build checklist to reflect that."</em></td>
+            </tr>
+          
+            <tr>
+              <td><strong>Document the base64 decode requirement for GetTranscriptContent in the transcript retrieval reference.</strong></td>
+              <td><span class="badge owner-badge">Brian Ochieng</span></td>
+              <td><span class="badge date-badge">2026-08-21</span></td>
+              <td class="evidence-cell"><em>"Will do, I will add it by end of day today."</em></td>
+            </tr>
+          
+            <tr>
+              <td><strong>Document the approval timeout question in the approval reference document.</strong></td>
+              <td><span class="badge owner-badge">Brian Ochieng</span></td>
+              <td><span class="badge date-badge">TBD</span></td>
+              <td class="evidence-cell"><em>"I will note that as an open question in the approval reference doc."</em></td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Open Questions</h2>
+      <ul class="questions-list">
+        
+          <li>
+            <strong>What happens if the meeting organiser is on leave and does not respond within the approval timeout window?</strong>
+            <span class="badge owner-badge">Josephat Otieno</span>
+            <div class="evidence-block"><em>"What happens if the organiser is on leave and does not respond within the approval timeout window?"</em></div>
+          </li>
+        
+      </ul>
+    </section>
+
+    <div class="warnings-box">
+        <h3>⚠️ Attention / Warnings</h3>
+        <ul>
+          <li>Approval timeout handling is not yet implemented. Status will remain PendingApproval until resolved in a future sprint.</li>
+        </ul>
+      </div>
+
+    <footer>
+      <p>Generated by ECL Power Automate Meeting Summary Automation • Subject to human approval</p>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,59 @@
+WEBVTT
+Kind: captions
+Language: en-us
+
+NOTE This is a synthetic test fixture for ECL pipeline dry-run validation.
+
+00:00:00.000 --> 00:00:05.000
+<v Josephat Otieno>Good morning everyone, let's get started with today's sprint planning.
+
+00:00:05.200 --> 00:00:12.400
+<v Josephat Otieno>We have three main items on the agenda: the SharePoint schema finalisation, Graph connector testing, and the approval flow design.
+
+00:00:13.000 --> 00:00:20.500
+<v Alice Mwangi>Thanks Josephat. I reviewed the SharePoint schema document last night and I think the Status column choices are well defined.
+
+00:00:21.000 --> 00:00:28.000
+<v Alice Mwangi>My only concern is around the AttemptCount field — should we cap it at the environment variable maximum or allow it to exceed for audit purposes?
+
+00:00:28.500 --> 00:00:35.200
+<v Josephat Otieno>Good point Alice. Let's keep AttemptCount uncapped in SharePoint but Flow 02 should stop retrying once it hits the TranscriptMaximumAttempts threshold.
+
+00:00:35.800 --> 00:00:42.000
+<v Alice Mwangi>Agreed. I will update the build checklist to reflect that.
+
+00:00:43.000 --> 00:00:50.500
+<v Brian Ochieng>On the Graph connector, I ran a quick test with a delegated token yesterday and the ResolveMeeting action returned the correct meeting for my test join URL.
+
+00:00:51.000 --> 00:00:58.000
+<v Brian Ochieng>However the GetTranscriptContent action returned a base64-encoded body instead of plain VTT. We will need to add the base64 decode step in Flow 02.
+
+00:00:58.500 --> 00:01:05.000
+<v Josephat Otieno>Brian, can you document that finding in the transcript retrieval reference so we do not miss it during the Power Automate build?
+
+00:01:05.200 --> 00:01:08.000
+<v Brian Ochieng>Will do, I will add it by end of day today.
+
+00:01:09.000 --> 00:01:15.500
+<v Alice Mwangi>For the approval flow, should we send the Adaptive Card to Teams only or also send an email to the organiser?
+
+00:01:16.000 --> 00:01:22.000
+<v Josephat Otieno>Both. The Approvals connector handles Teams cards automatically, and we will add a separate email action for visibility.
+
+00:01:22.500 --> 00:01:30.000
+<v Alice Mwangi>Perfect. One open question from my side — what happens if the organiser is on leave and does not respond within the approval timeout window?
+
+00:01:30.500 --> 00:01:38.000
+<v Josephat Otieno>We should add a reminder and a configurable timeout. After timeout, Status should remain PendingApproval and alert the team lead. Let us add that to the next sprint.
+
+00:01:38.500 --> 00:01:42.000
+<v Brian Ochieng>Sounds good. I will note that as an open question in the approval reference doc.
+
+00:01:43.000 --> 00:01:48.000
+<v Josephat Otieno>Great. To summarise — Alice updates the build checklist, Brian documents the base64 decode finding and approval timeout question. Let us reconvene Thursday.
+
+00:01:48.500 --> 00:01:50.000
+<v Alice Mwangi>Thanks everyone, see you Thursday.
+
+00:01:50.200 --> 00:01:51.000
+<v Brian Ochieng>Thanks, bye.

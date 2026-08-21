@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SharePoint Infrastructure Schema",
+  "description": "Declarative schema definitions for MeetingSummaryRuns list and Meeting Summaries library",
+  "lists": {
+    "MeetingSummaryRuns": {
+      "displayName": "MeetingSummaryRuns",
+      "description": "Processing queue, deduplication register, and audit trail for ECL Teams meeting summaries",
+      "template": "GenericList",
+      "indexedColumns": ["EventId", "Status", "MeetingStart"],
+      "columns": [
+        { "name": "Title", "displayName": "Title", "type": "Text", "required": true },
+        { "name": "EventId", "displayName": "Event ID", "type": "Text", "required": true, "indexed": true },
+        { "name": "SourceType", "displayName": "Source Type", "type": "Choice", "required": true, "choices": ["TeamsTranscript", "ManualUpload", "DirectAudio"], "default": "TeamsTranscript" },
+        { "name": "JoinUrl", "displayName": "Join URL", "type": "Note", "required": true, "richText": false },
+        { "name": "OrganizerEmail", "displayName": "Organizer Email", "type": "Text", "required": true },
+        { "name": "MeetingStart", "displayName": "Meeting Start", "type": "DateTime", "required": true, "indexed": true },
+        { "name": "MeetingEnd", "displayName": "Meeting End", "type": "DateTime", "required": true },
+        { "name": "MeetingId", "displayName": "Meeting ID", "type": "Text", "required": false },
+        { "name": "TranscriptId", "displayName": "Transcript ID", "type": "Text", "required": false },
+        { 
+          "name": "Status", 
+          "displayName": "Status", 
+          "type": "Choice", 
+          "required": true, 
+          "indexed": true,
+          "choices": [
+            "Queued",
+            "ResolvingMeeting",
+            "WaitingForTranscript",
+            "TranscriptReady",
+            "Summarising",
+            "PendingApproval",
+            "Approved",
+            "RevisionRequested",
+            "Rejected",
+            "TranscriptUnavailable",
+            "Failed"
+          ],
+          "default": "Queued"
+        },
+        { "name": "AttemptCount", "displayName": "Attempt Count", "type": "Number", "required": true, "default": 0 },
+        { "name": "SummaryJson", "displayName": "Summary JSON", "type": "Note", "required": false, "richText": false },
+        { "name": "ApprovalStarted", "displayName": "Approval Started", "type": "Choice", "required": true, "choices": ["No", "Yes"], "default": "No" },
+        { "name": "ApprovalOutcome", "displayName": "Approval Outcome", "type": "Choice", "required": false, "choices": ["Approve", "Request changes", "Reject"] },
+        { "name": "ApprovalComments", "displayName": "Approval Comments", "type": "Note", "required": false, "richText": false },
+        { "name": "ApprovedBy", "displayName": "Approved By", "type": "Text", "required": false },
+        { "name": "ApprovedOn", "displayName": "Approved On", "type": "DateTime", "required": false },
+        { "name": "SummaryFileUrl", "displayName": "Summary File URL", "type": "Text", "required": false },
+        { "name": "PromptVersion", "displayName": "Prompt Version", "type": "Text", "required": true, "default": "meeting-summary-v1" },
+        { "name": "ErrorCode", "displayName": "Error Code", "type": "Text", "required": false },
+        { "name": "ErrorDetails", "displayName": "Error Details", "type": "Note", "required": false, "richText": false },
+        { "name": "ProcessedOn", "displayName": "Processed On", "type": "DateTime", "required": false }
+      ]
+    },
+    "MeetingSummaries": {
+      "displayName": "Meeting Summaries",
+      "description": "Document library storing approved HTML/Markdown meeting summary reports",
+      "template": "DocumentLibrary",
+      "folderStructure": "/Meeting Summaries/YYYY-MM/",
+      "columns": [
+        { "name": "MeetingTitle", "displayName": "Meeting Title", "type": "Text", "required": false },
+        { "name": "EventDate", "displayName": "Event Date", "type": "DateTime", "required": false },
+        { "name": "OrganizerEmail", "displayName": "Organizer Email", "type": "Text", "required": false },
+        { "name": "MeetingId", "displayName": "Meeting ID", "type": "Text", "required": false },
+        { "name": "ApprovedBy", "displayName": "Approved By", "type": "Text", "required": false },
+        { "name": "ApprovedOn", "displayName": "Approved On", "type": "DateTime", "required": false }
+      ]
+    }
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "ECL Microsoft Graph Meetings",
+    "description": "Microsoft Graph custom connector for resolving scheduled Teams meetings and retrieving VTT transcripts under delegated permissions.",
+    "version": "1.0.0"
+  },
+  "host": "graph.microsoft.com",
+  "basePath": "/v1.0",
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json",
+    "text/vtt"
+  ],
+  "paths": {
+    "/me/onlineMeetings": {
+      "get": {
+        "summary": "Resolve Meeting by Filter",
+        "description": "Searches for an online meeting created by the authenticated user using an OData filter (such as JoinWebUrl).",
+        "operationId": "ResolveMeeting",
+        "parameters": [
+          {
+            "name": "$filter",
+            "in": "query",
+            "required": true,
+            "type": "string",
+            "description": "OData filter query, e.g., JoinWebUrl eq '{joinUrl}'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching online meetings",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "subject": { "type": "string" },
+                      "joinWebUrl": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/onlineMeetings/{meetingId}/transcripts": {
+      "get": {
+        "summary": "List Transcripts",
+        "description": "Retrieves the collection of transcripts associated with the specified online meeting.",
+        "operationId": "ListTranscripts",
+        "parameters": [
+          {
+            "name": "meetingId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The Microsoft Graph online meeting ID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of meeting transcripts",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" },
+                      "createdDateTime": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/me/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content": {
+      "get": {
+        "summary": "Get Transcript Content",
+        "description": "Retrieves the transcript content stream formatted as WebVTT.",
+        "operationId": "GetTranscriptContent",
+        "parameters": [
+          {
+            "name": "meetingId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The Microsoft Graph online meeting ID."
+          },
+          {
+            "name": "transcriptId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The transcript ID."
+          },
+          {
+            "name": "$format",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "default": "text/vtt",
+            "description": "Format format, default text/vtt."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WebVTT formatted transcript content string",
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "oauth2_auth": {
+      "type": "oauth2",
+      "flow": "accessCode",
+      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+      "scopes": {
+        "OnlineMeetings.Read": "Read online meetings",
+        "OnlineMeetingTranscript.Read.All": "Read online meeting transcripts",
+        "offline_access": "Maintain access to data"
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2_auth": [
+        "OnlineMeetings.Read",
+        "OnlineMeetingTranscript.Read.All",
+        "offline_access"
+      ]
+    }
+  ]
+}
