@@ -2,8 +2,8 @@
   "swagger": "2.0",
   "info": {
     "title": "ECL Microsoft Graph Meetings",
-    "description": "Microsoft Graph custom connector for resolving scheduled Teams meetings and retrieving VTT transcripts under delegated permissions.",
-    "version": "1.0.0"
+    "description": "Microsoft Graph custom connector for resolving scheduled Teams meetings and retrieving VTT transcripts under Application / Service Principal permissions.",
+    "version": "2.0.0"
   },
   "host": "graph.microsoft.com",
   "basePath": "/v1.0",
@@ -18,12 +18,19 @@
     "text/vtt"
   ],
   "paths": {
-    "/me/onlineMeetings": {
+    "/users/{userId}/onlineMeetings": {
       "get": {
-        "summary": "Resolve Meeting by Filter",
-        "description": "Searches for an online meeting created by the authenticated user using an OData filter (such as JoinWebUrl).",
-        "operationId": "ResolveMeeting",
+        "summary": "Resolve Meeting by Organizer and Filter",
+        "description": "Searches for an online meeting created by a specific organizer using an OData filter (such as JoinWebUrl).",
+        "operationId": "ResolveMeetingByUser",
         "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The Azure AD User Principal Name (email) or Object ID of the meeting organizer."
+          },
           {
             "name": "$filter",
             "in": "query",
@@ -55,12 +62,19 @@
         }
       }
     },
-    "/me/onlineMeetings/{meetingId}/transcripts": {
+    "/users/{userId}/onlineMeetings/{meetingId}/transcripts": {
       "get": {
-        "summary": "List Transcripts",
-        "description": "Retrieves the collection of transcripts associated with the specified online meeting.",
-        "operationId": "ListTranscripts",
+        "summary": "List Transcripts by Organizer",
+        "description": "Retrieves the collection of transcripts associated with the specified organizer's online meeting.",
+        "operationId": "ListTranscriptsByUser",
         "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The Azure AD User Principal Name (email) or Object ID of the meeting organizer."
+          },
           {
             "name": "meetingId",
             "in": "path",
@@ -91,12 +105,19 @@
         }
       }
     },
-    "/me/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content": {
+    "/users/{userId}/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content": {
       "get": {
-        "summary": "Get Transcript Content",
-        "description": "Retrieves the transcript content stream formatted as WebVTT.",
-        "operationId": "GetTranscriptContent",
+        "summary": "Get Transcript Content by Organizer",
+        "description": "Retrieves the transcript content stream formatted as WebVTT for a specific organizer's online meeting.",
+        "operationId": "GetTranscriptContentByUser",
         "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "description": "The Azure AD User Principal Name (email) or Object ID of the meeting organizer."
+          },
           {
             "name": "meetingId",
             "in": "path",
@@ -117,7 +138,7 @@
             "required": false,
             "type": "string",
             "default": "text/vtt",
-            "description": "Format format, default text/vtt."
+            "description": "Transcript content format (e.g. text/vtt)."
           }
         ],
         "responses": {
@@ -134,22 +155,17 @@
   "securityDefinitions": {
     "oauth2_auth": {
       "type": "oauth2",
-      "flow": "accessCode",
-      "authorizationUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+      "flow": "application",
       "tokenUrl": "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       "scopes": {
-        "OnlineMeetings.Read": "Read online meetings",
-        "OnlineMeetingTranscript.Read.All": "Read online meeting transcripts",
-        "offline_access": "Maintain access to data"
+        "https://graph.microsoft.com/.default": "Microsoft Graph Application Default Scope"
       }
     }
   },
   "security": [
     {
       "oauth2_auth": [
-        "OnlineMeetings.Read",
-        "OnlineMeetingTranscript.Read.All",
-        "offline_access"
+        "https://graph.microsoft.com/.default"
       ]
     }
   ]
