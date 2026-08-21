@@ -14,6 +14,8 @@ Flow 01 - Find completed meetings
 
 > [!NOTE]
 > **Agent-Driven Cloud Automation Status:** Automated cloud provisioning and agent-driven infrastructure/Power Platform mutations are currently **pending** until the delegated proof of concept and current solution assets receive formal architectural, security, and administrative approval.
+> 
+> **Future Proposal (`powerautomate-mcp`):** Following successful validation of the delegated POC and formal security sign-off, the team proposes evaluating the upstream [`powerautomate-mcp`](https://github.com/rcb0727/powerplatform-mcp-docs) toolset (as prototyped on the `codex/powerautomate-mcp` branch). Equipping the agent **with the right tools** will allow authorized AI tooling to safely inspect, deploy, and configure Power Automate flows and Dataverse solution components directly in the target environment under controlled admin service credentials. Until approved, all Power Platform environment changes remain strictly human-governed, with the local `ecl-graph-transcripts` helper used solely for read-only Graph validation.
 
 ---
 
