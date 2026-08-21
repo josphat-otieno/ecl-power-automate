@@ -19,10 +19,14 @@ State missing capabilities and request the least-privilege access needed. Do not
 
 ## Route the request
 
-- **Delegated proof of concept:** Read [references/delegated-poc.md](references/delegated-poc.md). Use only the organiser's own scheduled test meetings.
-- **Admin consent or approval pending:** Read [references/admin-pending-next-steps.md](references/admin-pending-next-steps.md). Build reusable implementation assets, dry-run checks, and approval packets without touching tenant-wide permissions or production data.
+- **Delegated proof of concept:** Read [references/delegated-proof-of-concept.md](references/delegated-proof-of-concept.md). Use only the organiser's own scheduled test meetings.
+- **Admin consent or approval pending:** Read [references/admin-application-rights-granted.md](references/admin-application-rights-granted.md). Build reusable implementation assets, dry-run checks, and approval packets without touching tenant-wide permissions or production data.
+- **Flow implementation:** Read [references/build-checklists.md](references/build-checklists.md) for the specific flow or component being built.
 - **Flow implementation:** Read [references/flow-build-checklists.md](references/flow-build-checklists.md) for the specific flow or component being built.
-- **Prompt, schema, or dry-run validation:** Read [references/llm-validation.md](references/llm-validation.md) before changing prompts or accepting model output.
+	- **Transcript retrieval and cleaning:** Read [references/transcript-retrieval-and-cleaning.md](references/transcript-retrieval-and-cleaning.md).
+	- **Summarisation and chunking:** Read [references/summarisation-and-chunking.md](references/summarisation-and-chunking.md).
+	- **Key Vault secret retrieval:** Read [references/key-vault-secret-retrieval.md](references/key-vault-secret-retrieval.md).
+- **Prompt, schema, or dry-run validation:** Read [references/llm-validation-guidance.md](references/llm-validation-guidance.md) before changing prompts or accepting model output.
 - **Production or application access:** Stop after documenting the required architecture, security review, approval owners, and rollback plan. Do not grant tenant-wide permissions or deploy without explicit human approval.
 - **Troubleshooting:** Determine the failing boundary first: trigger, meeting lookup, transcript retrieval, VTT parsing, LLM response, approval, publishing, or Odoo.
 - **Review or design:** Compare the proposed change against the handoff requirements, data-residency rule, auditability, approval gate, and minimal-retention principle.

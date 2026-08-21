@@ -1,4 +1,4 @@
-# Flow build checklists
+# Build checklists
 
 Use the smallest checklist that matches the current implementation task. Keep every step independently verifiable from Power Automate run history, SharePoint state, or a synthetic fixture.
 
@@ -10,7 +10,7 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - Keep secrets in Key Vault or another approved secret store. Never paste secret values into flow actions, prompts, run notes, or SharePoint fields.
 - Use `Scope - Try`, `Scope - Catch`, and `Scope - Finally` in flows that call Graph, the LLM endpoint, SharePoint publication, or Odoo.
 
-## Flow 01 - Dispatch completed meetings
+## Dispatch completed meetings checklist
 
 - Trigger manually for the first POC; move to recurrence only after the manual run passes.
 - Query Outlook calendar view for the configured time window.
@@ -19,7 +19,7 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - Create exactly one `MeetingSummaryRuns` item per eligible meeting.
 - Initial status must be `Queued`, `AttemptCount` must be `0`, and `ApprovalStarted` must be `No`.
 
-## Flow 02 - Retrieve and clean transcript
+## Transcript retrieval and cleaning checklist
 
 - Update the item to `ResolvingMeeting` before calling Graph.
 - Resolve `/me/onlineMeetings` with the exact join URL filter.
@@ -31,7 +31,7 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - Remove VTT headers, timestamp lines, blank lines, `NOTE`, `Kind:`, and `Language:` metadata.
 - Preserve speaker attribution and utterance order.
 
-## Flow 03 - Chunk and summarise
+## Chunking and summarisation checklist
 
 - Set status to `Summarising` before the first LLM call.
 - Chunk by configured character limit, preferably at speaker-turn or newline boundaries.
@@ -41,7 +41,7 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - Merge chunk summaries into a final structured summary.
 - Store only the required summary/audit output in SharePoint.
 
-## Flow 04 - Request approval and publish
+## Approval and publication checklist
 
 - Set `ApprovalStarted = Yes` and `Status = PendingApproval` when approval begins.
 - Include source meeting metadata, generated summary, warnings, and a link to the processing item.
@@ -50,7 +50,7 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - On rejection, set `Status = Rejected` and preserve approver comments.
 - Do not publish automatically before human approval.
 
-## Optional Flow 05 - Log approved summary in Odoo
+## Optional Odoo integration checklist
 
 - Enable only after approval from the Odoo owner.
 - Trigger only from `Status = Approved`.

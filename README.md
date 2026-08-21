@@ -19,10 +19,10 @@ Flow 01 - Find completed meetings
 | `ECL_Meeting_Summary_Power_Automate_Implementation_Plan.md` | Main Power Automate implementation plan, including solution setup, environment variables, SharePoint schema, Graph connector actions, and flow design. |
 | `ECL_Handoff_MeetingSummaryFlow_07082026.docx` | Handoff document for the meeting-summary flow. |
 | `ecl-meeting-summary-orchestrator/` | Codex skill instructions for planning, validating, troubleshooting, and coordinating this implementation safely. |
-| `ecl-meeting-summary-orchestrator/references/delegated-poc.md` | Delegated proof-of-concept procedure and acceptance checks. |
-| `ecl-meeting-summary-orchestrator/references/admin-pending-next-steps.md` | Safe implementation-prep work to do while admin consent and production approval are pending. |
-| `ecl-meeting-summary-orchestrator/references/flow-build-checklists.md` | Flow-by-flow build checklists for Power Automate implementation. |
-| `ecl-meeting-summary-orchestrator/references/llm-validation.md` | Prompt, JSON schema, and synthetic transcript validation guidance. |
+| `ecl-meeting-summary-orchestrator/references/delegated-proof-of-concept.md` | Delegated proof-of-concept procedure and acceptance checks. |
+| `ecl-meeting-summary-orchestrator/references/admin-application-rights-granted.md` | Safe implementation-prep work to do while admin consent and production approval are pending. |
+| `ecl-meeting-summary-orchestrator/references/build-checklists.md` | Flow-by-flow build checklists for Power Automate implementation. |
+| `ecl-meeting-summary-orchestrator/references/llm-validation-guidance.md` | Prompt, JSON schema, and synthetic transcript validation guidance. |
 | `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Local ECL-only Graph transcript helper; separate from the external `powerautomate-mcp` / Power Platform MCP track. |
 
 ## Target Outcome
@@ -104,9 +104,9 @@ OnlineMeetings.Read
 OnlineMeetingTranscript.Read.All
 ```
 
-See `ecl-meeting-summary-orchestrator/references/delegated-poc.md` for the detailed POC sequence and acceptance checks.
+See `ecl-meeting-summary-orchestrator/references/delegated-proof-of-concept.md` for the detailed POC sequence and acceptance checks.
 
-While admin consent or approval is pending, use `ecl-meeting-summary-orchestrator/references/admin-pending-next-steps.md` to focus on reusable skills, flow checklists, synthetic validation, prompt/schema work, and approval evidence rather than live tenant changes.
+While admin consent or approval is pending, use `ecl-meeting-summary-orchestrator/references/admin-application-rights-granted.md` to focus on reusable skills, flow checklists, synthetic validation, prompt/schema work, and approval evidence rather than live tenant changes.
 
 The external `powerautomate-mcp` / Power Platform MCP integration should come after the delegated POC proves the core flow. Until then, keep third-party MCP work parked and focus on implementation readiness, synthetic validation, and approval evidence. The local `ecl-power-automate-mcp` helper remains separate and should not be treated as the future Power Platform MCP integration.
 
