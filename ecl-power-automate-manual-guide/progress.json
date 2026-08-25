@@ -1,7 +1,7 @@
 {
   "workflow": "ECL Meeting Summary manual implementation",
-  "version": 104,
-  "current_checkpoint": "07.35",
+  "version": 106,
+  "current_checkpoint": "07.33",
   "checkpoints": [
     { "id": "01.01", "stage": "Confirm implementation targets", "name": "Confirm the Power Platform Development environment", "status": "completed", "completed_on": "2026-08-25T12:32:10+03:00" },
     { "id": "01.02", "stage": "Confirm implementation targets", "name": "Confirm the SharePoint site", "status": "skipped", "completed_on": "2026-08-25T12:40:30+03:00", "reason": "No approved SharePoint site is currently available; SharePoint provisioning and dependent flows remain blocked." },
@@ -100,8 +100,8 @@
     { "id": "07.30", "stage": "Flow 03 staged build", "name": "Initialize the merged action items array", "status": "completed", "completed_on": "2026-08-25T18:23:40+03:00" },
     { "id": "07.31", "stage": "Flow 03 staged build", "name": "Initialize the merged open questions array", "status": "completed", "completed_on": "2026-08-25T18:25:48+03:00" },
     { "id": "07.32", "stage": "Flow 03 staged build", "name": "Initialize the merged warnings array", "status": "completed", "completed_on": "2026-08-25T18:28:03+03:00" },
-    { "id": "07.33", "stage": "Flow 03 staged build", "name": "Append each validated recap to the recap merge array", "status": "completed", "completed_on": "2026-08-25T18:28:28+03:00" },
-    { "id": "07.34", "stage": "Flow 03 staged build", "name": "Create the decision merge loop", "status": "completed", "completed_on": "2026-08-25T18:35:36+03:00" },
+    { "id": "07.33", "stage": "Flow 03 staged build", "name": "Append each validated recap to the recap merge array", "status": "pending", "completed_on": null, "reason": "The screenshot showed that Append Recap was not saved inside Summarise Transcript Chunks." },
+    { "id": "07.34", "stage": "Flow 03 staged build", "name": "Create the decision merge loop", "status": "pending", "completed_on": null, "reason": "The first loop was placed outside Summarise Transcript Chunks and could not reference Parse Chunk Summary." },
     { "id": "07.35", "stage": "Flow 03 staged build", "name": "Append each decision to the merged decisions array", "status": "pending", "completed_on": null },
     { "id": "07", "stage": "Flow 03", "name": "Summarise cleaned transcript text", "status": "pending", "completed_on": null },
     { "id": "08", "stage": "Flow 04", "name": "Approve and publish summaries", "status": "pending", "completed_on": null },
