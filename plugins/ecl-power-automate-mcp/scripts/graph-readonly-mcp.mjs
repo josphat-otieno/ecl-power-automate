@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import { createHash, createPrivateKey, randomUUID, sign } from "node:crypto";
+import { readFile } from "node:fs/promises";
+
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const DELEGATED_SCOPES = ["User.Read", "OnlineMeetings.Read", "OnlineMeetingTranscript.Read.All"];
 let activeAccessToken = null;
@@ -8,7 +11,7 @@ let pendingDeviceCode = null;
 const tools = [
   {
     name: "acquire_app_token",
-    description: "Acquire a Microsoft Graph application (service principal / client credentials) access token using ECL_ENTRA_CLIENT_ID, ECL_ENTRA_CLIENT_SECRET, and ECL_ENTRA_TENANT_ID.",
+    description: "Acquire a Microsoft Graph application token using the configured Entra certificate (preferred) or client secret.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
@@ -27,15 +30,27 @@ const tools = [
     inputSchema: { type: "object", properties: {}, additionalProperties: false }
   },
   {
+    name: "get_user",
+    description: "Return a Microsoft 365 user by object ID for application-auth identity verification.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        user_id: { type: "string", description: "Microsoft Entra user object ID." }
+      },
+      required: ["user_id"],
+      additionalProperties: false
+    }
+  },
+  {
     name: "resolve_meeting_by_join_url",
     description: "Find an online meeting by its Teams join URL using either the organizer's user ID/email (/users/{userId}) or current delegated user (/me).",
     inputSchema: {
       type: "object",
       properties: {
         join_url: { type: "string", description: "Full Teams meeting join URL." },
-        user_id: { type: "string", description: "Optional User Principal Name (email) or Object ID of the meeting organizer. Required for application auth." }
+        user_id: { type: "string", description: "Microsoft Entra Object ID of the meeting organizer. Required for application auth." }
       },
-      required: ["join_url"],
+      required: ["join_url", "user_id"],
       additionalProperties: false
     }
   },
@@ -46,9 +61,9 @@ const tools = [
       type: "object",
       properties: {
         meeting_id: { type: "string", description: "Microsoft Graph online meeting ID." },
-        user_id: { type: "string", description: "Optional User Principal Name (email) or Object ID of the meeting organizer." }
+        user_id: { type: "string", description: "Microsoft Entra Object ID of the meeting organizer." }
       },
-      required: ["meeting_id"],
+      required: ["meeting_id", "user_id"],
       additionalProperties: false
     }
   },
@@ -60,9 +75,9 @@ const tools = [
       properties: {
         meeting_id: { type: "string", description: "Microsoft Graph online meeting ID." },
         transcript_id: { type: "string", description: "Microsoft Graph transcript ID." },
-        user_id: { type: "string", description: "Optional User Principal Name (email) or Object ID of the meeting organizer." }
+        user_id: { type: "string", description: "Microsoft Entra Object ID of the meeting organizer." }
       },
-      required: ["meeting_id", "transcript_id"],
+      required: ["meeting_id", "transcript_id", "user_id"],
       additionalProperties: false
     }
   }
@@ -88,18 +103,55 @@ function graphToken() {
   return token;
 }
 
-function entraConfig(requireSecret = false) {
+function entraConfig() {
   const clientId = process.env.ECL_ENTRA_CLIENT_ID;
   const tenantId = process.env.ECL_ENTRA_TENANT_ID;
   const clientSecret = process.env.ECL_ENTRA_CLIENT_SECRET;
+  const certificatePath = process.env.ECL_ENTRA_CERT_PATH;
+  const privateKeyPath = process.env.ECL_ENTRA_PRIVATE_KEY_PATH;
 
   if (!clientId || clientId.startsWith("${") || !tenantId || tenantId.startsWith("${")) {
     throw new Error("ECL_ENTRA_CLIENT_ID and ECL_ENTRA_TENANT_ID must be configured in environment variables.");
   }
-  if (requireSecret && (!clientSecret || clientSecret.startsWith("${"))) {
-    throw new Error("ECL_ENTRA_CLIENT_SECRET must be configured for application (client credentials) authentication.");
+  return { clientId, tenantId, clientSecret, certificatePath, privateKeyPath };
+}
+
+function base64Url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function certificateDer(certificatePem) {
+  const encoded = certificatePem
+    .replace(/-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----|\s/g, "");
+  return Buffer.from(encoded, "base64");
+}
+
+async function createClientAssertion(clientId, tokenUrl, certificatePath, privateKeyPath) {
+  if (!certificatePath || !privateKeyPath || certificatePath.startsWith("${") || privateKeyPath.startsWith("${")) {
+    throw new Error("ECL_ENTRA_CERT_PATH and ECL_ENTRA_PRIVATE_KEY_PATH must be configured for certificate authentication.");
   }
-  return { clientId, tenantId, clientSecret };
+
+  const [certificatePem, privateKeyPem] = await Promise.all([
+    readFile(certificatePath, "utf8"),
+    readFile(privateKeyPath, "utf8")
+  ]);
+  const header = {
+    alg: "RS256",
+    typ: "JWT",
+    x5t: createHash("sha1").update(certificateDer(certificatePem)).digest("base64url")
+  };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: tokenUrl,
+    exp: now + 600,
+    iss: clientId,
+    jti: randomUUID(),
+    nbf: now - 5,
+    sub: clientId
+  };
+  const unsignedAssertion = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
+  const signature = sign("RSA-SHA256", Buffer.from(unsignedAssertion), createPrivateKey(privateKeyPem));
+  return `${unsignedAssertion}.${signature.toString("base64url")}`;
 }
 
 async function formPost(url, values) {
@@ -114,11 +166,21 @@ async function formPost(url, values) {
 }
 
 async function acquireAppToken() {
-  const { clientId, tenantId, clientSecret } = entraConfig(true);
-  const result = await formPost(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`, {
+  const { clientId, tenantId, clientSecret, certificatePath, privateKeyPath } = entraConfig();
+  const tokenUrl = `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`;
+  const credentials = certificatePath && privateKeyPath
+    ? {
+        client_assertion_type: "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
+        client_assertion: await createClientAssertion(clientId, tokenUrl, certificatePath, privateKeyPath)
+      }
+    : { client_secret: clientSecret };
+  if (!credentials.client_assertion && (!clientSecret || clientSecret.startsWith("${"))) {
+    throw new Error("Configure an Entra certificate/private key pair or ECL_ENTRA_CLIENT_SECRET for application authentication.");
+  }
+  const result = await formPost(tokenUrl, {
     grant_type: "client_credentials",
     client_id: clientId,
-    client_secret: clientSecret,
+    ...credentials,
     scope: "https://graph.microsoft.com/.default"
   });
   activeAccessToken = result.access_token;
@@ -126,7 +188,7 @@ async function acquireAppToken() {
 }
 
 async function beginSignIn() {
-  const { clientId, tenantId } = entraConfig(false);
+  const { clientId, tenantId } = entraConfig();
   const result = await formPost(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/devicecode`, {
     client_id: clientId,
     scope: DELEGATED_SCOPES.join(" ")
@@ -139,7 +201,7 @@ async function completeSignIn() {
   if (!pendingDeviceCode || Date.now() >= pendingDeviceCode.expiresAt) {
     throw new Error("No active device-code sign-in. Run begin_delegated_sign_in again.");
   }
-  const { clientId, tenantId } = entraConfig(false);
+  const { clientId, tenantId } = entraConfig();
   const result = await formPost(`https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/token`, {
     grant_type: "urn:ietf:params:oauth:grant-type:device_code",
     client_id: clientId,
@@ -179,6 +241,8 @@ async function callTool(name, args) {
       return completeSignIn();
     case "get_current_user":
       return graphGet("/me?$select=id,displayName,userPrincipalName");
+    case "get_user":
+      return graphGet(`/users/${encodeURIComponent(args.user_id)}?$select=id,displayName,userPrincipalName`);
     case "resolve_meeting_by_join_url": {
       const base = getMeetingBasePath(args.user_id);
       const filter = `JoinWebUrl eq '${escapedODataString(args.join_url)}'`;

@@ -2,6 +2,8 @@
 
 This repository contains the implementation materials for ECL's Teams meeting-summary automation using Microsoft Power Automate, Microsoft Graph, SharePoint, approvals, and a selected LLM endpoint.
 
+The validated Graph path now uses certificate-based application authentication. Because Power Automate custom connectors do not support the OAuth client-credentials grant directly, the implementation includes a small Azure Functions gateway under `services/graph-transcript-gateway/`. The flow calls that gateway; the gateway holds the certificate boundary and calls Graph through `/users/{OrganizerUserId}`.
+
 The current architecture does not require a separately hosted agent or Copilot Studio. Power Automate performs the orchestration directly:
 
 ```text
@@ -13,9 +15,9 @@ Flow 01 - Find completed meetings
 ```
 
 > [!NOTE]
-> **Agent-Driven Cloud Automation Status:** Automated cloud provisioning and agent-driven infrastructure/Power Platform mutations are currently **pending** until the delegated proof of concept and current solution assets receive formal architectural, security, and administrative approval.
+> **Cloud Deployment Status:** Certificate-based Graph authentication, meeting resolution, and transcript-endpoint authorization have been validated. Automated Azure and Power Platform deployment remains pending until the gateway hosting boundary, target Development environment, SharePoint site, and approved LLM route receive formal approval.
 > 
-> **Future Proposal (`powerautomate-mcp`):** Following successful validation of the delegated POC and formal security sign-off, the team proposes evaluating the upstream [`powerautomate-mcp`](https://github.com/rcb0727/powerplatform-mcp-docs) toolset (as prototyped on the `codex/powerautomate-mcp` branch). Equipping the agent **with the right tools** will allow authorized AI tooling to safely inspect, deploy, and configure Power Automate flows and Dataverse solution components directly in the target environment under controlled admin service credentials. Until approved, all Power Platform environment changes remain strictly human-governed, with the local `ecl-graph-transcripts` helper used solely for read-only Graph validation.
+> **Future Proposal (`powerautomate-mcp`):** Following formal security sign-off, the team proposes evaluating the upstream [`powerautomate-mcp`](https://github.com/rcb0727/powerplatform-mcp-docs) toolset (as prototyped on the `codex/powerautomate-mcp` branch). Until it is approved and activated, Power Platform environment changes remain human-governed and this repository produces reviewable implementation assets locally.
 
 ---
 
@@ -52,7 +54,7 @@ Each file is a self-contained implementation reference for one concern.
 | `key-vault-secret-retrieval.md` | How to retrieve LLM and Graph secrets safely from Azure Key Vault with secure inputs/outputs enabled. |
 | `llm-validation-guidance.md` | LLM prompt design, structured JSON output schema, and synthetic transcript validation guidance. |
 | `sharepoint-schema-and-provisioning.md` | `MeetingSummaryRuns` list columns, `Meeting Summaries` document library, column choices, and provisioning steps. |
-| `solution-setup-and-environment-variables.md` | All 12 environment variables, connection references, and custom connector registration steps. |
+| `solution-setup-and-environment-variables.md` | All 15 environment variables, connection references, and gateway connector registration steps. |
 | `summarisation-and-chunking.md` | Flow 03 — Transcript chunking strategy, LLM prompt, structured JSON output handling, and error detection. |
 | `transcript-retrieval-and-cleaning.md` | Flow 02 — Graph transcript retrieval, base64 decode, VTT cleaning, speaker attribution, and secret redaction. |
 
@@ -63,9 +65,11 @@ Machine-readable definitions for direct use in Power Automate or deployment tool
 | File | Purpose |
 |---|---|
 | `adaptive-card-template.json` | Adaptive Card v1.5 template for the Teams approval notification (Flow 04). |
-| `graph-connector-swagger.json` | OpenAPI / Swagger 2.0 definition for the `ECL Microsoft Graph Meetings` custom connector. |
+| `graph-gateway-connector-swagger.json` | Current OpenAPI definition for the certificate-authenticated Graph gateway connector. |
+| `graph-connector-swagger.json` | Superseded direct-Graph connector retained for migration reference; it is not the certificate-authenticated production path. |
 | `sharepoint-list-schema.json` | Machine-readable column schema for the `MeetingSummaryRuns` SharePoint list. |
-| `solution-manifest.json` | All 12 environment variable declarations for the Power Platform solution manifest. |
+| `solution-manifest.json` | All 15 environment variable declarations for the Power Platform solution manifest. |
+| `graph-gateway-connector-swagger.json` | Import definition for the certificate-authenticated Graph transcript gateway. |
 
 ---
 
@@ -80,7 +84,7 @@ Node.js CLI tools for dry-run testing without a live Power Automate or Azure env
 | `run-pipeline-test.js` | **End-to-end pipeline dry-run.** Chains all scripts through Flows 01–04 using synthetic fixtures. | `node scripts/run-pipeline-test.js` |
 | `simulate-calendar-dispatcher.js` | Filter synthetic calendar events through the Flow 01 eligibility rules and produce queue items. | `node scripts/simulate-calendar-dispatcher.js` |
 | `validate-sharepoint-item.js` | Validate a `MeetingSummaryRuns` list item against the full column schema. | `node scripts/validate-sharepoint-item.js <items.json>` |
-| `validate-solution-env.js` | Validate all 12 environment variables declared in `solution-manifest.json`. | `node scripts/validate-solution-env.js <manifest.json>` |
+| `validate-solution-env.js` | Validate all 15 environment variables declared in `solution-manifest.json`. | `node scripts/validate-solution-env.js <manifest.json>` |
 
 #### Running the E2E pipeline test
 ```bash
@@ -88,14 +92,24 @@ node scripts/run-pipeline-test.js
 ```
 Expected output: all 5 stages PASS and an HTML approval document written to `test-fixtures/pipeline-output.html`.
 
+### Certificate-authenticated Graph gateway — `services/graph-transcript-gateway/`
+
+This Azure Functions service is the unattended authentication boundary for Flow 02. It creates a short-lived certificate assertion, caches only the resulting access token in memory, resolves meetings by organizer object ID, lists transcripts, and returns VTT content. Its connector contract is `ecl-meeting-summary-orchestrator/resources/graph-gateway-connector-swagger.json`.
+
+Run its unit tests with:
+
+```bash
+npm test --prefix services/graph-transcript-gateway
+```
+
 ### Delegated Graph MCP Tool — `plugins/ecl-power-automate-mcp/`
 
-A local, read-only MCP server (`ecl-graph-transcripts`) used to test delegated Microsoft Graph meeting and transcript retrieval before building or deploying Power Automate flows.
+A local, read-only MCP server (`ecl-graph-transcripts`) used to test certificate-based application access or delegated Microsoft Graph access before deploying Power Automate flows.
 
 | Path | Purpose |
 |---|---|
 | `plugins/ecl-power-automate-mcp/.mcp.json` | MCP server configuration mapping `ecl-graph-transcripts` to `node ./scripts/graph-readonly-mcp.mjs`. |
-| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Node.js MCP server implementing Entra ID device-code sign-in and Graph `/me/onlineMeetings` transcript retrieval. |
+| `plugins/ecl-power-automate-mcp/scripts/graph-readonly-mcp.mjs` | Node.js MCP server implementing certificate application authentication and optional delegated sign-in for Graph validation. |
 
 #### Available MCP Tools
 
@@ -200,6 +214,9 @@ Full definitions are in `ecl-meeting-summary-orchestrator/resources/solution-man
 | Variable | Purpose |
 |---|---|
 | `GraphBaseUrl` | Microsoft Graph base URL (`https://graph.microsoft.com/v1.0`). |
+| `GraphGatewayBaseUrl` | Approved Azure Function gateway URL used by Flow 02. |
+| `DefaultOrganizerUserId` | Entra object ID used in application-authenticated `/users/{userId}` Graph calls. |
+| `DefaultOrganizerEmail` | Outlook organizer address paired with the object ID for the first release. |
 | `TranscriptInitialDelayMinutes` | Delay before first transcript lookup after a meeting ends. |
 | `TranscriptRetryDelayMinutes` | Delay between transcript retrieval attempts. |
 | `TranscriptMaximumAttempts` | Maximum transcript lookup attempts before marking failed. |
@@ -214,29 +231,29 @@ Full definitions are in `ecl-meeting-summary-orchestrator/resources/solution-man
 
 ---
 
-## Delegated Proof of Concept
+## Graph Proof of Concept
 
-Start with a delegated proof of concept before productionising the flow.
+The current proof uses application authentication with the registered certificate.
 
 The POC must:
 
-- use the meeting organiser's delegated Microsoft 365 identity only;
+- use `/users/{OrganizerUserId}` and the approved Teams application access policy;
 - process only scheduled test meetings owned by that organiser;
 - avoid tenant-wide application permissions;
-- keep agent-driven cloud automation and automated environment provisioning on hold until the current delegated slice is approved;
+- keep automated environment provisioning on hold until the gateway hosting boundary is approved;
 - avoid production Odoo writes;
 - store secrets only in Key Vault or another approved secret store;
 - use an approved Azure OpenAI route for client or citizen data; and
 - require human review before publishing any summary.
 
-Recommended delegated Graph scopes:
+Required Graph application permissions:
 
 ```text
-OnlineMeetings.Read
+OnlineMeetings.Read.All
 OnlineMeetingTranscript.Read.All
 ```
 
-See `ecl-meeting-summary-orchestrator/references/delegated-proof-of-concept.md` for the full POC sequence and acceptance checks.
+The organizer's Entra user object ID must be supplied separately from the app registration object ID. A `200` response with an empty transcript collection proves authorization but means a transcript is not yet available.
 
 
 ---
@@ -246,26 +263,26 @@ See `ecl-meeting-summary-orchestrator/references/delegated-proof-of-concept.md` 
 Create a custom connector named:
 
 ```text
-ECL Microsoft Graph Meetings
+ECL Graph Transcript Gateway
 ```
 
 Use:
 
 ```text
 Scheme: HTTPS
-Host: graph.microsoft.com
-Base URL: /v1.0
+Host: <approved Function App>.azurewebsites.net
+Base URL: /api
 ```
 
-The full OpenAPI 2.0 definition is in `ecl-meeting-summary-orchestrator/resources/graph-connector-swagger.json`.
+The current OpenAPI 2.0 definition is in `ecl-meeting-summary-orchestrator/resources/graph-gateway-connector-swagger.json`.
 
 Required actions:
 
 | Action | Method and path |
 |---|---|
-| `ResolveMeeting` | `GET /me/onlineMeetings` |
-| `ListTranscripts` | `GET /me/onlineMeetings/{meetingId}/transcripts` |
-| `GetTranscriptContent` | `GET /me/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content` |
+| `ResolveMeeting` | `GET /meetings/resolve?organizerUserId=...&joinUrl=...` |
+| `ListTranscripts` | `GET /users/{organizerUserId}/onlineMeetings/{meetingId}/transcripts` |
+| `GetTranscriptContent` | `GET /users/{organizerUserId}/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content` |
 
 For transcript content, request:
 
@@ -273,7 +290,7 @@ For transcript content, request:
 Accept: text/vtt
 ```
 
-> **Note:** The Graph API returns transcript content as base64-encoded bytes. Flow 02 must base64-decode the response body before passing it to the VTT cleaner.
+> **Note:** Decode a Power Automate `$content` envelope only when the connector actually returns one. If the connector returns `text/vtt` directly, pass the body to the VTT cleaner unchanged.
 
 ---
 

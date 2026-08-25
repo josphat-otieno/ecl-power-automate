@@ -42,6 +42,7 @@ function filterEligibleEvents(events, targetOrganizerEmail) {
 
 function processCalendarDispatch(calendarEvents, existingQueueItems = [], options = {}) {
   const targetOrganizer = options.targetOrganizerEmail || 'organiser@elewa.co.ke';
+  const targetOrganizerUserId = options.targetOrganizerUserId || process.env.ECL_DEFAULT_ORGANIZER_USER_ID;
   const promptVersion = options.promptVersion || 'meeting-summary-v1';
 
   const existingEventIds = new Set(
@@ -67,6 +68,7 @@ function processCalendarDispatch(calendarEvents, existingQueueItems = [], option
         SourceType: 'TeamsTranscript',
         JoinUrl: event.onlineMeeting?.joinUrl || event.onlineMeetingUrl,
         OrganizerEmail: event.organizer?.emailAddress?.address || targetOrganizer,
+        OrganizerUserId: targetOrganizerUserId,
         MeetingStart: event.start?.dateTime || event.start,
         MeetingEnd: event.end?.dateTime || event.end,
         Status: 'Queued',

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Teams Graph Transcript Test"
+  short_description: "Verify Teams transcript access through Graph"
+  default_prompt: "Use $teams-graph-transcript-test to test this Teams meeting URL with certificate-based Microsoft Graph authentication."

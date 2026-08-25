@@ -7,7 +7,8 @@
         "ECL_GRAPH_ACCESS_TOKEN": "${ECL_GRAPH_ACCESS_TOKEN}",
         "ECL_ENTRA_CLIENT_ID": "${ECL_ENTRA_CLIENT_ID}",
         "ECL_ENTRA_TENANT_ID": "${ECL_ENTRA_TENANT_ID}",
-        "ECL_ENTRA_CLIENT_SECRET": "${ECL_ENTRA_CLIENT_SECRET}"
+        "ECL_ENTRA_CERT_PATH": "../../certs/ecl-entra-auth.cert.pem",
+        "ECL_ENTRA_PRIVATE_KEY_PATH": "../../certs/ecl-entra-auth.key.pem"
       }
     }
   }

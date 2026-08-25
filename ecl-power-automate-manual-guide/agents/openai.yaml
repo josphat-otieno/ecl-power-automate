@@ -1,0 +1,4 @@
+interface:
+  display_name: "ECL Power Automate Manual Guide"
+  short_description: "Follow the ECL build with click-by-click instructions"
+  default_prompt: "Use $ecl-power-automate-manual-guide to give me the next click-by-click manual implementation checkpoint."

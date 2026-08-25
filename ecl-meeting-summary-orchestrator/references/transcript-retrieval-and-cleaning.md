@@ -4,8 +4,8 @@ Purpose
 - Implement and verify the transcript retrieval path (Graph → VTT) and basic cleaning so the summarisation step can consume reliable, speaker-preserved text.
 
 Assumptions
-- Entra delegated sign-in is available for a test organiser, or a delegated short-lived token is provided.
-- The Microsoft Graph custom connector or the local `graph-readonly-mcp` helper is accessible for reads only.
+- The approved Entra application has `OnlineMeetings.Read.All` and `OnlineMeetingTranscript.Read.All` application permissions plus an application access policy for the organizer.
+- The certificate-authenticated gateway is deployed, or the local `graph-readonly-mcp` helper is accessible for read-only validation.
 
 Dependencies
 - `ecl-meeting-summary-orchestrator/references/build-checklists.md` — checklist and conventions.
@@ -15,15 +15,15 @@ Step-by-step implementer guide
 1. Create a manual-triggered Power Automate flow for POC runs only.
 2. Input parameters: `JoinUrl` (meeting join URL), `TestRunId` (optional test identifier).
 3. Resolve meeting:
-   - Call the Graph helper or custom connector to `ResolveMeeting`/`resolve_meeting_by_join_url` with `JoinUrl`.
+   - Call `ResolveMeeting` on the gateway connector with `OrganizerUserId` and `JoinUrl`, or call the local helper with the same values.
    - If zero or multiple matches, set processing item `Status = ResolvingMeetingError` and stop.
    - Store the returned `MeetingId` in the processing item.
 4. List transcripts:
-   - Call `ListTranscripts`/`list_meeting_transcripts` for the stored `MeetingId`.
+   - Call `ListTranscripts`/`list_meeting_transcripts` with `OrganizerUserId` and the stored `MeetingId`.
    - If none, implement a retry loop using configured delays and maximum attempts; if still none, set `Status = TranscriptUnavailable`, `ErrorCode = TRANSCRIPT_NOT_READY`, and stop.
 5. Fetch transcript content:
    - Select the most recent transcript (or matching `transcriptId` if provided).
-   - Call `GetTranscriptContent`/`get_transcript_vtt` with `meeting_id` and `transcript_id`, requesting `text/vtt`.
+   - Call `GetTranscriptContent`/`get_transcript_vtt` with `OrganizerUserId`, `meeting_id`, and `transcript_id`, requesting `text/vtt`.
    - If the connector returns a `$content` envelope, base64-decode it first; otherwise use body as received.
 6. Clean VTT to produce plain, speaker-preserved text:
    - Remove VTT headers, `WEBVTT` lines, `NOTE`, `Kind:`, `Language:` metadata, timestamp lines, and blank lines.

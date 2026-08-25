@@ -5,7 +5,8 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 ## Shared setup
 
 - Create the `ECL Meeting Summary` solution before creating flows.
-- Use connection references for Outlook, SharePoint, Approvals, Azure Key Vault, HTTP, and the Microsoft Graph custom connector.
+- Use connection references for Outlook, SharePoint, Approvals, Azure Key Vault, HTTP, and the Graph transcript gateway connector.
+- For unattended certificate authentication, call Graph through the approved transcript gateway connection. Power Automate custom connectors do not support the OAuth client-credentials grant directly.
 - Use environment variables for URLs, retry settings, chunk size, model deployment, prompt version, list names, and library names.
 - Keep secrets in Key Vault or another approved secret store. Never paste secret values into flow actions, prompts, run notes, or SharePoint fields.
 - Use `Scope - Try`, `Scope - Catch`, and `Scope - Finally` in flows that call Graph, the LLM endpoint, SharePoint publication, or Odoo.
@@ -18,11 +19,12 @@ Use the smallest checklist that matches the current implementation task. Keep ev
 - Use SharePoint `Get items` to detect an existing `EventId`.
 - Create exactly one `MeetingSummaryRuns` item per eligible meeting.
 - Initial status must be `Queued`, `AttemptCount` must be `0`, and `ApprovalStarted` must be `No`.
+- Store the approved organizer's Microsoft Entra object ID in `OrganizerUserId`; never substitute the app registration object ID or an email address.
 
 ## Transcript retrieval and cleaning checklist
 
 - Update the item to `ResolvingMeeting` before calling Graph.
-- Resolve `/me/onlineMeetings` with the exact join URL filter.
+- Resolve `/users/{OrganizerUserId}/onlineMeetings` through the transcript gateway with the exact join URL.
 - Store `MeetingId` only after one matching meeting is found.
 - Retry transcript listing with configured delay and maximum attempts.
 - If unavailable after retries, set `Status = TranscriptUnavailable` and `ErrorCode = TRANSCRIPT_NOT_READY`.

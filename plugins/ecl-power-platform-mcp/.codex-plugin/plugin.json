@@ -1,0 +1,27 @@
+{
+  "name": "ecl-power-platform-mcp",
+  "version": "0.1.0",
+  "description": "Project-scoped Codex wrapper for Power Platform and Power Automate MCP tooling.",
+  "author": {
+    "name": "Elewa"
+  },
+  "homepage": "https://github.com/rcb0727/powerplatform-mcp-docs",
+  "repository": "https://github.com/rcb0727/powerplatform-mcp-docs",
+  "license": "MIT",
+  "keywords": ["power-automate", "power-platform", "mcp"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "ECL Power Platform MCP",
+    "shortDescription": "Build and inspect ECL Power Automate solutions",
+    "longDescription": "Connects Codex to the approved Power Platform environment for solution-aware cloud flow creation, inspection, validation, and troubleshooting.",
+    "developerName": "Elewa",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/rcb0727/powerplatform-mcp-docs",
+    "defaultPrompt": [
+      "Inspect the ECL Power Platform Development environment.",
+      "Build ECL-MS-02 from the repository flow specification.",
+      "Validate the ECL Meeting Summary solution without changing production."
+    ]
+  }
+}

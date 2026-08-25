@@ -14,6 +14,7 @@
         { "name": "SourceType", "displayName": "Source Type", "type": "Choice", "required": true, "choices": ["TeamsTranscript", "ManualUpload", "DirectAudio"], "default": "TeamsTranscript" },
         { "name": "JoinUrl", "displayName": "Join URL", "type": "Note", "required": true, "richText": false },
         { "name": "OrganizerEmail", "displayName": "Organizer Email", "type": "Text", "required": true },
+        { "name": "OrganizerUserId", "displayName": "Organizer Entra User ID", "type": "Text", "required": true },
         { "name": "MeetingStart", "displayName": "Meeting Start", "type": "DateTime", "required": true, "indexed": true },
         { "name": "MeetingEnd", "displayName": "Meeting End", "type": "DateTime", "required": true },
         { "name": "MeetingId", "displayName": "Meeting ID", "type": "Text", "required": false },

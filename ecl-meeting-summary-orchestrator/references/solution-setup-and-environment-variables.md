@@ -1,7 +1,7 @@
 # Solution setup and environment variables
 
 Purpose
-- Provide a step-by-step implementer guide for creating, packaging, and configuring the **`ECL Meeting Summary`** Power Platform solution, its 12 Environment Variables, 6 Connection References, and the Microsoft Graph Custom Connector.
+- Provide a step-by-step implementer guide for creating, packaging, and configuring the **`ECL Meeting Summary`** Power Platform solution, its 15 Environment Variables, 6 Connection References, and the Graph transcript gateway connector.
 
 ---
 
@@ -21,7 +21,10 @@ All environment variables must use the publisher prefix `ecl_` to support Applic
 
 | Schema Name | Display Name | Type | Default Value | Description |
 |---|---|---|---|---|
-| `ecl_GraphBaseUrl` | Graph Base URL | String | `https://graph.microsoft.com/v1.0` | Microsoft Graph API v1.0 base endpoint. |
+| `ecl_GraphBaseUrl` | Graph Base URL | String | `https://graph.microsoft.com/v1.0` | Microsoft Graph API v1.0 base endpoint used by the gateway. |
+| `ecl_GraphGatewayBaseUrl` | Graph Transcript Gateway Base URL | String | Environment-specific | Approved Azure Function gateway URL used by Power Automate. |
+| `ecl_DefaultOrganizerUserId` | Default Organizer Entra User ID | String | Environment-specific GUID | Organizer object ID used in `/users/{userId}` for the first single-organizer release. |
+| `ecl_DefaultOrganizerEmail` | Default Organizer Email | String | Environment-specific | Outlook filtering identity paired with the organizer object ID. |
 | `ecl_TranscriptInitialDelayMinutes` | Transcript Initial Delay (Minutes) | Number | `15` | Lookback delay after a meeting ends before checking for transcripts. |
 | `ecl_TranscriptRetryDelayMinutes` | Transcript Retry Delay (Minutes) | Number | `5` | Wait time between transcript lookup attempts. |
 | `ecl_TranscriptMaximumAttempts` | Transcript Maximum Attempts | Number | `6` | Maximum retry attempts for transcript retrieval before timing out. |
@@ -47,23 +50,19 @@ The solution requires 6 connection references to connect flows with Microsoft 36
 | `ecl_shared_approvals` | Approvals Connection | `shared_approvals` | Creating and managing human review cards. |
 | `ecl_shared_azurekeyvault` | Azure Key Vault Connection | `shared_azurekeyvault` | Securely retrieving LLM credentials using ephemeral `Get secret`. |
 | `ecl_shared_http` | HTTP Connection | `shared_http` | Invoking the approved Azure OpenAI / LLM endpoint. |
-| `ecl_shared_graphconnector` | Graph Meetings Custom Connector | Custom Connector ID | Executing delegated `/me/onlineMeetings` and transcript queries. |
+| `ecl_shared_graphgateway` | Graph Transcript Gateway Connection | Custom Connector ID | Calling the certificate-authenticated gateway without placing certificate material in flows. |
 
 ---
 
-## 4. Microsoft Graph Custom Connector Setup
+## 4. Graph Transcript Gateway Connector Setup
 
-- **Connector Name:** `ECL Microsoft Graph Meetings`
-- **Definition File:** `ecl-meeting-summary-orchestrator/resources/graph-connector-swagger.json`
-- **Host:** `graph.microsoft.com`
-- **Base URL:** `/v1.0`
-- **Authentication:** OAuth 2.0 (Azure Active Directory)
-  - **Client ID:** `<Entra Application Client ID>`
-  - **Client Secret:** `<Entra Application Client Secret>`
-  - **Authorization URL:** `https://login.microsoftonline.com/common/oauth2/v2.0/authorize`
-  - **Token URL:** `https://login.microsoftonline.com/common/oauth2/v2.0/token`
-  - **Resource URL:** `https://graph.microsoft.com`
-  - **Scopes:** `OnlineMeetings.Read`, `OnlineMeetingTranscript.Read.All`, `offline_access`
+- **Connector Name:** `ECL Graph Transcript Gateway`
+- **Definition File:** `ecl-meeting-summary-orchestrator/resources/graph-gateway-connector-swagger.json`
+- **Host:** Replace with the approved Azure Function App host before import.
+- **Base URL:** `/api`
+- **Authentication:** API key in the `x-functions-key` header, stored only in the connector connection.
+- **Graph authentication:** The gateway uses the approved Entra certificate and application token. Certificate/private-key values are Key Vault references in Function App settings and are never stored in Power Automate.
+- **Implementation:** `services/graph-transcript-gateway/`
 
 ---
 
@@ -71,8 +70,8 @@ The solution requires 6 connection references to connect flows with Microsoft 36
 
 1. **Create Solution:** Create unmanaged solution `ECL Meeting Summary` in Development environment.
 2. **Add Components:**
-   - Add the 6 Connection References and 12 Environment Variables.
-   - Add the custom connector `ECL Microsoft Graph Meetings`.
+   - Add the 6 Connection References and 15 Environment Variables.
+   - Add the custom connector `ECL Graph Transcript Gateway`.
    - Add cloud flows `ECL-MS-01`, `ECL-MS-02`, `ECL-MS-03`, `ECL-MS-04` (and optional `ECL-MS-05`).
 3. **Export Solution:** Export as **Managed** for staging and production environments.
 4. **Environment Deployment:**

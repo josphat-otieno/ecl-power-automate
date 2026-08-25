@@ -10,9 +10,10 @@ Purpose
 - **Trigger Method:**
   - **POC / Initial Testing:** Manual trigger with `LookbackMinutes` input (or test meeting picker).
   - **Automated Pipeline:** Recurrence trigger every 15 minutes in `Africa/Nairobi` (or tenant local timezone).
-- **Delegated Identity Constraint:**
-  - In delegated mode, only process meetings where `OrganizerEmail` matches the authenticated connection identity (or configured target organizer).
-  - Exclude external invites or meetings where the user is solely an attendee (as delegated Graph cannot access transcripts of meetings organized by others).
+- **Organizer Identity Constraint:**
+  - For the first application-authenticated release, process only meetings where `OrganizerEmail` matches `DefaultOrganizerEmail`.
+  - Store the paired `DefaultOrganizerUserId` on every queue item. This must be the organizer's Entra user object ID, not the app registration object ID.
+  - Exclude external invites and meetings whose organizer is not covered by the Teams application access policy.
 - **Idempotency Guarantee:**
   - Always query SharePoint (`MeetingSummaryRuns`) for an existing item with the same `EventId` before creating a queue item.
   - Never create duplicate queue entries for the same meeting instance.
@@ -88,6 +89,7 @@ For each item in the filtered array:
   SourceType         = TeamsTranscript
   JoinUrl            = @{items('Apply_to_each')?['onlineMeeting/joinUrl']}
   OrganizerEmail     = @{items('Apply_to_each')?['organizer/emailAddress/address']}
+  OrganizerUserId    = @parameters('DefaultOrganizerUserId')
   MeetingStart       = @{items('Apply_to_each')?['start']}
   MeetingEnd         = @{items('Apply_to_each')?['end']}
   Status             = Queued

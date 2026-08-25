@@ -1,6 +1,6 @@
 ---
 name: ecl-meeting-summary-orchestrator
-description: Orchestrate ECL's Power Automate meeting-summary work. Use as the entry point for requests to plan, set up, build, validate, troubleshoot, or release the Teams transcript summarisation flow, especially while Entra admin consent or production approval is pending. First inventory available tools, identities, permissions, and environment; then select and coordinate only the relevant implementation procedure, skills, checklists, or dry-run validation.
+description: Orchestrate ECL's Power Automate meeting-summary work. Use as the entry point for requests to plan, set up, build, validate, troubleshoot, or release the Teams transcript summarisation flow, including the certificate-authenticated application path. First inventory available tools, identities, permissions, and environment; then select and coordinate only the relevant implementation procedure, skills, checklists, or dry-run validation.
 ---
 
 # ECL Meeting Summary Orchestrator

@@ -3,7 +3,7 @@
 /**
  * validate-solution-env.js
  * 
- * Validates that an environment configuration file contains all 12 required
+ * Validates that an environment configuration file contains all required
  * environment variables for the ECL Meeting Summary solution with correct types.
  */
 
@@ -12,6 +12,9 @@ const path = require('path');
 
 const REQUIRED_ENV_VARS = [
   { name: 'ecl_GraphBaseUrl', type: 'string', pattern: /^https?:\/\// },
+  { name: 'ecl_GraphGatewayBaseUrl', type: 'string', pattern: /^https:\/\// },
+  { name: 'ecl_DefaultOrganizerUserId', type: 'string', pattern: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i },
+  { name: 'ecl_DefaultOrganizerEmail', type: 'string', pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ },
   { name: 'ecl_TranscriptInitialDelayMinutes', type: 'number', min: 1 },
   { name: 'ecl_TranscriptRetryDelayMinutes', type: 'number', min: 1 },
   { name: 'ecl_TranscriptMaximumAttempts', type: 'number', min: 1 },
@@ -96,7 +99,7 @@ if (require.main === module) {
 
     console.log(`\n--- Validating Environment Configuration (${configFile}) ---`);
     if (result.valid) {
-      console.log('✅ Configuration Status: ALL 12 ENVIRONMENT VARIABLES VALID');
+      console.log(`✅ Configuration Status: ALL ${REQUIRED_ENV_VARS.length} ENVIRONMENT VARIABLES VALID`);
       process.exit(0);
     } else {
       console.log('❌ Configuration Status: INVALID');

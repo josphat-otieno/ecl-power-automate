@@ -145,7 +145,10 @@ let summaryData = null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 stage('1 — Calendar Dispatch: Filter & Queue', () => {
-  const result = processCalendarDispatch(CALENDAR_EVENTS, [], { targetOrganizerEmail: 'josephat@elewa.co.ke' });
+  const result = processCalendarDispatch(CALENDAR_EVENTS, [], {
+    targetOrganizerEmail: 'josephat@elewa.co.ke',
+    targetOrganizerUserId: 'c07b7048-a9b1-480a-b4db-f7c20ada7b77'
+  });
   if (result.queuedItems.length === 0) throw new Error('No eligible meetings dispatched');
   queueItem = result.queuedItems[0];
   return `${result.eligibleCount} eligible, ${result.queuedItems.length} queued → "${queueItem.Title}"`;

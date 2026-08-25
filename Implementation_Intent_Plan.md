@@ -381,4 +381,4 @@ Scheduled Teams test meeting
   -> summary is reviewed manually
 ```
 
-Only after this succeeds reliably should approval, SharePoint publication, scheduling, and optional Odoo logging be added.
+Only after this succeeds reliably should approval, SharePo int publication, scheduling, and optional Odoo logging be added.

@@ -21,6 +21,7 @@ Acts as the central work coordinator across Flows 01–05, storing run status, G
 | `SourceType` | Source Type | Choice | Yes | `TeamsTranscript`, `ManualUpload`, `DirectAudio` (Default: `TeamsTranscript`) | Origin of the meeting audio/transcript. |
 | `JoinUrl` | Join URL | Multiple lines (Plain text) | Yes | Plain text | Full Microsoft Teams meeting join URL. |
 | `OrganizerEmail` | Organizer Email | Single line of text | Yes | Email format | Email address of the meeting organizer. |
+| `OrganizerUserId` | Organizer Entra User ID | Single line of text | Yes | GUID | Organizer user object ID used by the application-authenticated Graph path. Never use the app registration object ID here. |
 | `MeetingStart` | Meeting Start | Date and Time | Yes | ISO 8601 (Date & Time) | Scheduled meeting start time (UTC). |
 | `MeetingEnd` | Meeting End | Date and Time | Yes | ISO 8601 (Date & Time) | Scheduled meeting end time (UTC). |
 | `MeetingId` | Meeting ID | Single line of text | No | String | Microsoft Graph online meeting ID resolved by Flow 02. |

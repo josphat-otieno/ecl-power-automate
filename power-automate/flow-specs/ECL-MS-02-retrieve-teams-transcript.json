@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ECL-MS-02",
+  "displayName": "ECL-MS-02 - Retrieve Teams Transcript",
+  "implementationStatus": "ready-for-power-automate-build",
+  "trigger": {
+    "connector": "SharePoint",
+    "operation": "WhenAnItemIsCreatedOrModified",
+    "listEnvironmentVariable": "ecl_ProcessingListName",
+    "condition": "@equals(triggerOutputs()?['body/Status/Value'], 'Queued')",
+    "concurrency": 1
+  },
+  "requiredItemFields": [
+    "ID",
+    "JoinUrl",
+    "OrganizerEmail",
+    "OrganizerUserId",
+    "Status",
+    "AttemptCount"
+  ],
+  "connectionReferences": [
+    "ecl_shared_sharepointonline",
+    "ecl_shared_graphgateway"
+  ],
+  "environmentVariables": [
+    "ecl_ProcessingListName",
+    "ecl_SharePointSiteUrl",
+    "ecl_TranscriptRetryDelayMinutes",
+    "ecl_TranscriptMaximumAttempts"
+  ],
+  "scopes": {
+    "try": [
+      {
+        "name": "Set ResolvingMeeting",
+        "operation": "SharePoint.UpdateItem",
+        "writes": { "Status": "ResolvingMeeting", "ErrorCode": null, "ErrorDetails": null }
+      },
+      {
+        "name": "Resolve Meeting",
+        "operation": "GraphGateway.ResolveMeeting",
+        "inputs": { "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']", "joinUrl": "@triggerOutputs()?['body/JoinUrl']" },
+        "secureInputs": true,
+        "secureOutputs": true
+      },
+      {
+        "name": "Store Meeting ID",
+        "operation": "SharePoint.UpdateItem",
+        "writes": { "MeetingId": "@body('Resolve_Meeting')?['id']", "Status": "WaitingForTranscript" }
+      },
+      {
+        "name": "Wait For Transcript",
+        "operation": "Until",
+        "stopWhen": "@or(greater(length(variables('Transcripts')), 0), greaterOrEquals(variables('AttemptCount'), int(parameters('ecl_TranscriptMaximumAttempts'))))",
+        "steps": [
+          {
+            "name": "List Transcripts",
+            "operation": "GraphGateway.ListTranscripts",
+            "inputs": { "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']", "meetingId": "@body('Resolve_Meeting')?['id']" },
+            "secureInputs": true,
+            "secureOutputs": true
+          },
+          { "name": "Capture Transcripts", "operation": "SetVariable", "value": "@body('List_Transcripts')?['value']" },
+          { "name": "Increment Attempt", "operation": "IncrementVariable", "value": 1 },
+          { "name": "Persist Attempt", "operation": "SharePoint.UpdateItem", "writes": { "AttemptCount": "@variables('AttemptCount')" } },
+          {
+            "name": "Delay If Empty",
+            "operation": "Delay",
+            "condition": "@equals(length(variables('Transcripts')), 0)",
+            "count": "@int(parameters('ecl_TranscriptRetryDelayMinutes'))",
+            "unit": "Minute"
+          }
+        ]
+      },
+      {
+        "name": "Transcript Available",
+        "operation": "Condition",
+        "expression": "@greater(length(variables('Transcripts')), 0)",
+        "ifFalse": {
+          "operation": "SharePoint.UpdateItem",
+          "writes": { "Status": "TranscriptUnavailable", "ErrorCode": "TRANSCRIPT_NOT_READY", "ProcessedOn": "@utcNow()" },
+          "terminate": "Succeeded"
+        }
+      },
+      {
+        "name": "Select Latest Transcript",
+        "operation": "SelectMaximum",
+        "orderBy": "createdDateTime",
+        "from": "@variables('Transcripts')"
+      },
+      {
+        "name": "Get Transcript Content",
+        "operation": "GraphGateway.GetTranscriptContent",
+        "inputs": {
+          "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']",
+          "meetingId": "@body('Resolve_Meeting')?['id']",
+          "transcriptId": "@outputs('Select_Latest_Transcript')?['id']"
+        },
+        "secureInputs": true,
+        "secureOutputs": true
+      },
+      {
+        "name": "Normalize VTT Body",
+        "operation": "Compose",
+        "rule": "Decode base64 only when the connector response contains a $content envelope; otherwise use the text/vtt body unchanged."
+      },
+      {
+        "name": "Clean VTT",
+        "operation": "PowerAutomateExpressions",
+        "rule": "Remove WEBVTT, NOTE, Kind, Language, timestamps and blank lines; preserve speaker labels and utterance order."
+      },
+      {
+        "name": "Mark Transcript Ready",
+        "operation": "SharePoint.UpdateItem",
+        "writes": {
+          "TranscriptId": "@outputs('Select_Latest_Transcript')?['id']",
+          "Status": "TranscriptReady"
+        }
+      }
+    ],
+    "catch": {
+      "runAfter": ["Failed", "TimedOut"],
+      "operation": "SharePoint.UpdateItem",
+      "writes": {
+        "Status": "Failed",
+        "ErrorCode": "TRANSCRIPT_FLOW_FAILED",
+        "ErrorDetails": "Sanitized status, gateway correlation ID and Graph request ID only"
+      }
+    },
+    "finally": {
+      "operation": "SharePoint.UpdateItem",
+      "condition": "Terminal status only",
+      "writes": { "ProcessedOn": "@utcNow()" }
+    }
+  },
+  "retention": {
+    "rawTranscriptInSharePoint": false,
+    "secretsInRunHistory": false,
+    "nextHandoff": "Pass cleaned transcript directly to ECL-MS-03 using secure child-flow inputs."
+  }
+}

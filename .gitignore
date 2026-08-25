@@ -12,4 +12,5 @@ node_modules/
 # Meeting handoff documents
 ECL_Handoff_MeetingSummaryFlow_07082026.docx
 *.docx
-git 
+git
+certs/ 

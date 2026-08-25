@@ -52,6 +52,9 @@ function validateSharePointItem(item) {
   if (!item.OrganizerEmail || typeof item.OrganizerEmail !== 'string' || !item.OrganizerEmail.includes('@')) {
     errors.push('Missing or invalid required field: "OrganizerEmail" (must be valid email string)');
   }
+  if (!item.OrganizerUserId || typeof item.OrganizerUserId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.OrganizerUserId)) {
+    errors.push('Missing or invalid required field: "OrganizerUserId" (must be a Microsoft Entra user object ID)');
+  }
 
   // 2. Check Choice Constraints
   if (item.Status && !VALID_STATUSES.includes(item.Status)) {

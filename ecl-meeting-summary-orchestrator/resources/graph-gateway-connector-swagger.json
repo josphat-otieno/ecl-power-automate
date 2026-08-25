@@ -1,0 +1,98 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "ECL Graph Transcript Gateway",
+    "description": "Power Automate connector for the ECL certificate-authenticated Microsoft Graph transcript gateway.",
+    "version": "1.0.0"
+  },
+  "host": "REPLACE-WITH-FUNCTION-APP.azurewebsites.net",
+  "basePath": "/api",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json", "text/vtt"],
+  "paths": {
+    "/meetings/resolve": {
+      "get": {
+        "operationId": "ResolveMeeting",
+        "summary": "Resolve a meeting",
+        "parameters": [
+          { "name": "organizerUserId", "in": "query", "required": true, "type": "string", "description": "Microsoft Entra object ID of the meeting organizer." },
+          { "name": "joinUrl", "in": "query", "required": true, "type": "string", "description": "Full Microsoft Teams join URL." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resolved online meeting",
+            "schema": {
+              "type": "object",
+              "required": ["id"],
+              "properties": {
+                "id": { "type": "string" },
+                "subject": { "type": "string", "x-nullable": true },
+                "joinWebUrl": { "type": "string", "x-nullable": true },
+                "startDateTime": { "type": "string", "format": "date-time", "x-nullable": true },
+                "endDateTime": { "type": "string", "format": "date-time", "x-nullable": true }
+              }
+            }
+          },
+          "404": { "description": "No matching active meeting" },
+          "409": { "description": "Meeting lookup was not unique" }
+        }
+      }
+    },
+    "/users/{organizerUserId}/onlineMeetings/{meetingId}/transcripts": {
+      "get": {
+        "operationId": "ListTranscripts",
+        "summary": "List meeting transcripts",
+        "parameters": [
+          { "name": "organizerUserId", "in": "path", "required": true, "type": "string" },
+          { "name": "meetingId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transcript collection",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "createdDateTime": { "type": "string", "format": "date-time", "x-nullable": true },
+                      "endDateTime": { "type": "string", "format": "date-time", "x-nullable": true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/users/{organizerUserId}/onlineMeetings/{meetingId}/transcripts/{transcriptId}/content": {
+      "get": {
+        "operationId": "GetTranscriptContent",
+        "summary": "Download transcript content",
+        "produces": ["text/vtt"],
+        "parameters": [
+          { "name": "organizerUserId", "in": "path", "required": true, "type": "string" },
+          { "name": "meetingId", "in": "path", "required": true, "type": "string" },
+          { "name": "transcriptId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "WebVTT transcript", "schema": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "function_key": {
+      "type": "apiKey",
+      "name": "x-functions-key",
+      "in": "header"
+    }
+  },
+  "security": [{ "function_key": [] }]
+}
