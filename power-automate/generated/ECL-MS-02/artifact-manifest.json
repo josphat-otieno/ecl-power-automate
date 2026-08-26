@@ -1,0 +1,21 @@
+{
+  "artifactVersion": "1.0.0",
+  "solutionUniqueName": "ECLMeetingSummary",
+  "flowId": "ECL-MS-02",
+  "flowDisplayName": "ECL-MS-02 - Retrieve Teams Transcript",
+  "intendedSolutionType": "Unmanaged",
+  "sourceContract": "../../flow-specs/ECL-MS-02-retrieve-teams-transcript.json",
+  "files": [
+    "flow-definition.json",
+    "deployment-settings.template.json"
+  ],
+  "status": "implemented-draft-awaiting-graph-gateway",
+  "limitations": [
+    "The custom connector must exist before the flow can be activated.",
+    "Connector operation and SharePoint field names must be reconciled against metadata in the target Development environment.",
+    "VTT normalization is included; full speaker-preserving cleaning is handed to Flow 03 or the gateway until a supported Power Automate expression sequence is validated.",
+    "The Graph gateway and its custom connector are not deployed; live transcript retrieval cannot run yet.",
+    "Use ECLMeetingSummary 1.0.0.5 as the solution baseline when the gateway dependency is available.",
+    "This directory is not itself a Dataverse solution ZIP. Merge it into a targeted Flow 02 update only after the custom connector exists."
+  ]
+}

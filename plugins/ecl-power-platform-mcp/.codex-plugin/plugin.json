@@ -1,6 +1,6 @@
 {
   "name": "ecl-power-platform-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Project-scoped Codex wrapper for Power Platform and Power Automate MCP tooling.",
   "author": {
     "name": "Elewa"
@@ -19,8 +19,8 @@
     "capabilities": ["Interactive", "Write"],
     "websiteURL": "https://github.com/rcb0727/powerplatform-mcp-docs",
     "defaultPrompt": [
-      "Inspect the ECL Power Platform Development environment.",
-      "Build ECL-MS-02 from the repository flow specification.",
+      "Inspect the ECL Power Platform Development environment without changing it.",
+      "Build ECL-MS-02 from the repository flow specification in Development after showing the proposed changes.",
       "Validate the ECL Meeting Summary solution without changing production."
     ]
   }

@@ -31,6 +31,10 @@
             "WaitingForTranscript",
             "TranscriptReady",
             "Summarising",
+            "ReadyToPublish",
+            "Publishing",
+            "Published",
+            "PublicationFailed",
             "PendingApproval",
             "Approved",
             "RevisionRequested",
@@ -65,7 +69,9 @@
         { "name": "OrganizerEmail", "displayName": "Organizer Email", "type": "Text", "required": false },
         { "name": "MeetingId", "displayName": "Meeting ID", "type": "Text", "required": false },
         { "name": "ApprovedBy", "displayName": "Approved By", "type": "Text", "required": false },
-        { "name": "ApprovedOn", "displayName": "Approved On", "type": "DateTime", "required": false }
+        { "name": "ApprovedOn", "displayName": "Approved On", "type": "DateTime", "required": false },
+        { "name": "GeneratedOn", "displayName": "Generated On", "type": "DateTime", "required": false },
+        { "name": "ProcessingItemId", "displayName": "Processing Item ID", "type": "Number", "required": false }
       ]
     }
   }

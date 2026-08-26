@@ -17,7 +17,7 @@ Flow 01 - Find completed meetings
 > [!NOTE]
 > **Cloud Deployment Status:** Certificate-based Graph authentication, meeting resolution, and transcript-endpoint authorization have been validated. Automated Azure and Power Platform deployment remains pending until the gateway hosting boundary, target Development environment, SharePoint site, and approved LLM route receive formal approval.
 > 
-> **Future Proposal (`powerautomate-mcp`):** Following formal security sign-off, the team proposes evaluating the upstream [`powerautomate-mcp`](https://github.com/rcb0727/powerplatform-mcp-docs) toolset (as prototyped on the `codex/powerautomate-mcp` branch). Until it is approved and activated, Power Platform environment changes remain human-governed and this repository produces reviewable implementation assets locally.
+> **Power Platform MCP:** A project-scoped wrapper for upstream [`powerautomate-mcp`](https://github.com/rcb0727/powerplatform-mcp-docs) is implemented under `plugins/ecl-power-platform-mcp/`. It is pinned to a reviewed release and must initially target Development. Power Platform changes remain human-governed: inventory and validation are read-only, while creation or updates require confirmation and the upstream delegated authoring application.
 
 ---
 
@@ -151,6 +151,10 @@ A local, read-only MCP server (`ecl-graph-transcripts`) used to test certificate
    - Call `resolve_meeting_by_join_url` with the Teams meeting join link.
    - Call `list_meeting_transcripts` with the returned `meeting_id`.
    - Call `get_transcript_vtt` with the `meeting_id` and `transcript_id` to download the transcript.
+
+### Power Platform authoring MCP — `plugins/ecl-power-platform-mcp/`
+
+A separate project-scoped Codex plugin that launches the pinned upstream Power Platform MCP for environment inventory and supervised Power Automate authoring. See its README for setup, validation, and operating guardrails. It does not reuse the Graph gateway's certificate application.
 
 ---
 

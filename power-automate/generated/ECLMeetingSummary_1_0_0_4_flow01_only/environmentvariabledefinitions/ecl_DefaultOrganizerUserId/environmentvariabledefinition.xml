@@ -1,0 +1,10 @@
+<environmentvariabledefinition schemaname="ecl_DefaultOrganizerUserId">
+  <displayname default="Default Organizer Entra User ID">
+    <label description="Default Organizer Entra User ID" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

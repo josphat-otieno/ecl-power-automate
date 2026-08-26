@@ -1,0 +1,599 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_keyvault": {
+        "runtimeSource": "invoker",
+        "connection": {
+          "connectionReferenceLogicalName": "new_sharedkeyvault_cb6e4"
+        },
+        "api": {
+          "name": "shared_keyvault"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "Transcript Chunk Maximum Characters (ecl_TranscriptChunkMaximumCharacters)": {
+          "defaultValue": 12000,
+          "type": "Int",
+          "metadata": {
+            "schemaName": "ecl_TranscriptChunkMaximumCharacters"
+          }
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "42c93244-1c7b-49df-9844-880ec8cbe64e"
+          },
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "title": "source_type",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Meeting source type",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_1": {
+                  "title": "source_id",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Meeting or processing record identifier",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_2": {
+                  "title": "title",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Meeting Title",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "date": {
+                  "title": "event_date",
+                  "type": "string",
+                  "format": "date",
+                  "x-ms-dynamically-added": true,
+                  "description": "Please enter or select a date (YYYY-MM-DD)",
+                  "x-ms-content-hint": "DATE"
+                },
+                "email": {
+                  "title": "organiser_email",
+                  "type": "string",
+                  "format": "email",
+                  "x-ms-dynamically-added": true,
+                  "description": "Meeting organiser email",
+                  "x-ms-content-hint": "EMAIL"
+                },
+                "text_3": {
+                  "title": "participants",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Participant names or emails",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "text_4": {
+                  "title": "content_text",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Cleaned transcript text",
+                  "x-ms-content-hint": "TEXT"
+                },
+                "boolean": {
+                  "title": "speaker_availability",
+                  "type": "boolean",
+                  "x-ms-dynamically-added": true,
+                  "description": "Please select yes or no",
+                  "x-ms-content-hint": "BOOLEAN"
+                },
+                "text_5": {
+                  "title": "prompt_version",
+                  "type": "string",
+                  "x-ms-dynamically-added": true,
+                  "description": "Prompt version identifier",
+                  "x-ms-content-hint": "TEXT"
+                }
+              },
+              "required": [
+                "text",
+                "text_1",
+                "text_2",
+                "text_4",
+                "boolean",
+                "text_5"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "POC_Placeholder": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "ffe16128-2108-409b-9dde-128e35b0be7b"
+          },
+          "type": "Compose",
+          "inputs": "Flow 03 setup"
+        },
+        "Scope_-_Try": {
+          "actions": {
+            "Transcript_Text": {
+              "type": "Compose",
+              "inputs": "@triggerBody()?['text_4']"
+            },
+            "Transcript_Character_Count": {
+              "runAfter": {
+                "Transcript_Text": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@length(outputs('Transcript_Text'))"
+            },
+            "Maximum_Chunk_Characters": {
+              "runAfter": {
+                "Transcript_Character_Count": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@parameters('Transcript Chunk Maximum Characters (ecl_TranscriptChunkMaximumCharacters)')"
+            },
+            "Required_Chunk_Count": {
+              "runAfter": {
+                "Maximum_Chunk_Characters": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@div(\n  add(\n    outputs('Transcript_Character_Count'),\n    sub(int(outputs('Maximum_Chunk_Characters')), 1)\n  ),\n  int(outputs('Maximum_Chunk_Characters'))\n)"
+            },
+            "Build_Transcript_Chunks": {
+              "foreach": "@range(0, outputs('Required_Chunk_Count'))",
+              "actions": {},
+              "runAfter": {
+                "Required_Chunk_Count": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach"
+            },
+            "Summarise_Transcript_Chunks": {
+              "foreach": "@variables('Chunks')",
+              "actions": {
+                "Build_Chunk_Prompt": {
+                  "type": "Compose",
+                  "inputs": "Summarise only the supplied transcript chunk. Do not invent facts.\n\nsource_type: @{triggerBody()?['text']}\nsource_id: @{triggerBody()?['text_1']}\nchunk_index: @{variables('ChunkIndex')}\nprompt_version: @{triggerBody()?['text_5']}\n\nReturn only valid JSON with this exact structure:\n{\n  \"recap\": \"string\",\n  \"decisions\": [\n    {\n      \"decision\": \"string\",\n      \"made_by\": null,\n      \"evidence\": \"exact transcript excerpt\"\n    }\n  ],\n  \"action_items\": [\n    {\n      \"task\": \"string\",\n      \"owner\": null,\n      \"due_date\": null,\n      \"evidence\": \"exact transcript excerpt\"\n    }\n  ],\n  \"open_questions\": [\n    {\n      \"question\": \"string\",\n      \"owner\": null,\n      \"evidence\": \"exact transcript excerpt\"\n    }\n  ],\n  \"warnings\": []\n}\n\nUse null when an owner, date, or decision maker is unknown. Every decision, action item, and open question must include evidence copied from the transcript. Add a warning when the text is incomplete or speaker attribution is unavailable.\n\nTranscript chunk:@{items('Summarise_Transcript_Chunks')}\n"
+                },
+                "Increment_ChunkIndex": {
+                  "runAfter": {
+                    "Apply_to_each_Decision": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "ChunkIndex",
+                    "value": 1
+                  }
+                },
+                "Call_LLM_for_Chunk": {
+                  "runAfter": {
+                    "Build_Chunk_Prompt": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Http",
+                  "inputs": {
+                    "uri": "https://placeholder.invalid",
+                    "method": "POST",
+                    "headers": {
+                      "Content-Type": "application/json",
+                      "api-key": "@{outputs('Retrieve_LLM_Secret')?['body/value']}"
+                    },
+                    "body": {
+                      "messages": [
+                        {
+                          "role": "system",
+                          "content": "Use only the supplied transcript chunk. Return valid JSON only. Never invent facts. Use null for unknown owners, dates, or decision makers."
+                        },
+                        {
+                          "role": "user",
+                          "content": "@{outputs('Build_Chunk_Prompt')}"
+                        }
+                      ],
+                      "temperature": 0.1,
+                      "response_format": {
+                        "type": "json_object"
+                      }
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "contentTransfer": {
+                      "transferMode": "Chunked"
+                    },
+                    "secureData": {
+                      "properties": [
+                        "inputs",
+                        "outputs"
+                      ]
+                    }
+                  }
+                },
+                "Parse_Chunk_Summary": {
+                  "runAfter": {
+                    "Call_LLM_for_Chunk": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "ParseJson",
+                  "inputs": {
+                    "content": "@json(body('Call_LLM_for_Chunk')?['choices']?[0]?['message']?['content'])",
+                    "schema": {
+                      "type": "object",
+                      "properties": {
+                        "recap": {
+                          "type": "string"
+                        },
+                        "decisions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "decision": {
+                                "type": "string"
+                              },
+                              "made_by": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "evidence": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "decision",
+                              "made_by",
+                              "evidence"
+                            ]
+                          }
+                        },
+                        "action_items": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "task": {
+                                "type": "string"
+                              },
+                              "owner": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "due_date": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "evidence": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "task",
+                              "owner",
+                              "due_date",
+                              "evidence"
+                            ]
+                          }
+                        },
+                        "open_questions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "question": {
+                                "type": "string"
+                              },
+                              "owner": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "evidence": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "question",
+                              "owner",
+                              "evidence"
+                            ]
+                          }
+                        },
+                        "warnings": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "recap",
+                        "decisions",
+                        "action_items",
+                        "open_questions",
+                        "warnings"
+                      ]
+                    }
+                  }
+                },
+                "Append_Chunk_Summary": {
+                  "runAfter": {
+                    "Parse_Chunk_Summary": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "AppendToArrayVariable",
+                  "inputs": {
+                    "name": "ChunkSummaries",
+                    "value": "@body('Parse_Chunk_Summary')"
+                  }
+                },
+                "Append_Recap": {
+                  "runAfter": {
+                    "Append_Chunk_Summary": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "AppendToArrayVariable",
+                  "inputs": {
+                    "name": "Recaps",
+                    "value": "@body('Parse_Chunk_Summary')?['recap']"
+                  }
+                },
+                "Apply_to_each_Decision": {
+                  "foreach": "@body('Parse_Chunk_Summary')?['decisions']",
+                  "actions": {},
+                  "runAfter": {
+                    "Append_Recap": [
+                      "Succeeded"
+                    ]
+                  },
+                  "type": "Foreach"
+                }
+              },
+              "runAfter": {
+                "Retrieve_LLM_Secret": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach"
+            },
+            "Retrieve_LLM_Secret": {
+              "runAfter": {
+                "Build_Transcript_Chunks": [
+                  "Succeeded"
+                ]
+              },
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "secretName": "LLM Secret Name"
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_keyvault",
+                  "operationId": "GetSecret",
+                  "connectionName": "shared_keyvault"
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_CurrentChunk": [
+              "Succeeded"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Scope_-_Catch": {
+          "actions": {},
+          "runAfter": {
+            "Scope_-_Try": [
+              "TimedOut",
+              "Skipped",
+              "Failed"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Scope_-_Finally": {
+          "actions": {},
+          "runAfter": {
+            "Scope_-_Catch": [
+              "Succeeded",
+              "TimedOut",
+              "Skipped",
+              "Failed"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Initialize_ChunkSummaries": {
+          "runAfter": {
+            "POC_Placeholder": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "ChunkSummaries",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_Chunks": {
+          "runAfter": {
+            "Initialize_MergedWarnings": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Chunks",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_ChunkIndex": {
+          "runAfter": {
+            "Initialize_Chunks": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "ChunkIndex",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Initialize_CurrentChunk": {
+          "runAfter": {
+            "Initialize_ChunkIndex": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "CurrentChunk",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "Initialize_Recaps": {
+          "runAfter": {
+            "Initialize_ChunkSummaries": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Recaps",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_MergedDecisions": {
+          "runAfter": {
+            "Initialize_Recaps": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "MergedDecisions",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_MergedActionItems": {
+          "runAfter": {
+            "Initialize_MergedDecisions": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "MergedActionItems",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_MergedOpenQuestions": {
+          "runAfter": {
+            "Initialize_MergedActionItems": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "MergedOpenQuestions",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        },
+        "Initialize_MergedWarnings": {
+          "runAfter": {
+            "Initialize_MergedOpenQuestions": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "MergedWarnings",
+                "type": "array",
+                "value": "@json('[]')"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

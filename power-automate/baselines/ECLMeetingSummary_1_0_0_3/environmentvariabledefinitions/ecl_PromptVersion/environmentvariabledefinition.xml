@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="ecl_PromptVersion">
+  <defaultvalue>v1</defaultvalue>
+  <displayname default="Prompt Version">
+    <label description="Prompt Version" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.2</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

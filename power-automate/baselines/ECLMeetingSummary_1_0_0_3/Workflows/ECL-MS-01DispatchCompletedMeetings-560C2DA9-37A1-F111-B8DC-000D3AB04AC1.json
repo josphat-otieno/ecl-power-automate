@@ -1,0 +1,227 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_office365": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_office365"
+        },
+        "runtimeSource": "invoker"
+      },
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_sharepointonline"
+        },
+        "runtimeSource": "invoker"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "number": {
+                  "title": "LookbackMinutes",
+                  "type": "number",
+                  "x-ms-dynamically-added": true,
+                  "description": "90",
+                  "x-ms-content-hint": "NUMBER"
+                }
+              },
+              "required": [
+                "number"
+              ]
+            }
+          },
+          "runtimeConfiguration": {
+            "concurrency": {
+              "runs": 1
+            }
+          },
+          "metadata": {
+            "operationMetadataId": "2b518669-25ae-49e7-918c-b41f34fdc0c0"
+          }
+        }
+      },
+      "actions": {
+        "Initialize_WindowStart": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "WindowStart",
+                "type": "string",
+                "value": "@addMinutes(utcNow(), mul(-1, int(coalesce(triggerBody()?['number'], 90))))"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Initialize_WindowEnd": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "WindowEnd",
+                "type": "string",
+                "value": "@addMinutes(utcNow(), -15)"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_WindowStart": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Try": {
+          "type": "Scope",
+          "actions": {
+            "Get_Completed_Calendar_Events": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "parameters": {
+                  "calendarId": "AAMkADFhYmIwNDUzLTY4OWEtNDk1My1iZmE1LThjNDQwYWVkNTJhMwBGAAAAAACdVQAICdxoSref9D8-H6E8BwDjqfFqOqAKS7hyc29FyYfKAAAAAAEGAADjqfFqOqAKS7hyc29FyYfKAAAAATCyAAA=",
+                  "startDateTimeUtc": "@variables('WindowStart')",
+                  "endDateTimeUtc": "@variables('WindowEnd')",
+                  "$top": 100
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                  "operationId": "GetEventsCalendarViewV3",
+                  "connectionName": "shared_office365"
+                }
+              }
+            },
+            "Filter_Eligible_Teams_Meetings": {
+              "type": "Query",
+              "inputs": {
+                "from": "@outputs('Get_Completed_Calendar_Events')?['body/value']",
+                "where": "@and(equals(item()?['isOnlineMeeting'], true), equals(item()?['onlineMeetingProvider'], 'teamsForBusiness'), not(empty(item()?['onlineMeeting']?['joinUrl'])), equals(toLower(item()?['organizer']?['emailAddress']?['address']), toLower(parameters('ecl_DefaultOrganizerEmail'))), equals(item()?['isCancelled'], false))"
+              },
+              "runAfter": {
+                "Get_Completed_Calendar_Events": [
+                  "Succeeded"
+                ]
+              }
+            },
+            "Apply_to_each_eligible_meeting": {
+              "type": "Foreach",
+              "foreach": "@body('Filter_Eligible_Teams_Meetings')",
+              "actions": {
+                "Get_existing_queue_item": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "parameters": {
+                      "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                      "table": "@parameters('ecl_ProcessingListName')",
+                      "$filter": "@concat('EventId eq ''', replace(items('Apply_to_each_eligible_meeting')?['id'], '''', ''''''), '''')",
+                      "$top": 1
+                    },
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "operationId": "GetItems",
+                      "connectionName": "shared_sharepointonline"
+                    }
+                  }
+                },
+                "If_not_already_queued": {
+                  "type": "If",
+                  "expression": {
+                    "equals": [
+                      "@length(outputs('Get_existing_queue_item')?['body/value'])",
+                      0
+                    ]
+                  },
+                  "actions": {
+                    "Create_queue_item": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "table": "51450320-536b-4ba3-b005-7f355e7405d9",
+                          "item/EventID": "@item()?['id']",
+                          "item/SourceType/Value": "TeamsTranscript",
+                          "item/AttemptCount": 0,
+                          "item/ApprovalStarted": false,
+                          "item/PromptVersion": "meeting-summary-v1"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PostItem",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "runAfter": {
+                    "Get_existing_queue_item": [
+                      "Succeeded"
+                    ]
+                  }
+                }
+              },
+              "runAfter": {
+                "Filter_Eligible_Teams_Meetings": [
+                  "Succeeded"
+                ]
+              },
+              "runtimeConfiguration": {
+                "concurrency": {
+                  "repetitions": 1
+                }
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_WindowEnd": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Catch": {
+          "type": "Scope",
+          "actions": {
+            "Compose_sanitized_failure": {
+              "type": "Compose",
+              "inputs": "Flow 01 failed before dispatch completed. Review connector status and correlation IDs in run history; do not copy tokens or meeting bodies into support notes."
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

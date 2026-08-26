@@ -1,0 +1,16 @@
+{
+  "name": "ecl-power-platform-mcp-wrapper",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Lifecycle commands and contract tests for the ECL Power Platform MCP plugin.",
+  "scripts": {
+    "setup": "npx -y powerautomate-mcp@0.16.12 --setup --client codex --npx",
+    "doctor": "npx -y powerautomate-mcp@0.16.12 --doctor",
+    "validate": "npx -y powerautomate-mcp@0.16.12 --validate",
+    "version:upstream": "npx -y powerautomate-mcp@0.16.12 --version",
+    "test": "node --test test/plugin-contract.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="ecl_TranscriptInitialDelayMinutes">
+  <defaultvalue>15</defaultvalue>
+  <displayname default="Transcript Initial Delay (Minutes)">
+    <label description="Transcript Initial Delay (Minutes)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.0</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000001</type>
+</environmentvariabledefinition>

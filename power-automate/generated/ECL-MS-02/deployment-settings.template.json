@@ -1,0 +1,20 @@
+{
+  "EnvironmentVariables": [
+    { "SchemaName": "ecl_SharePointSiteUrl", "Value": "REPLACE_WITH_SHAREPOINT_SITE_URL" },
+    { "SchemaName": "ecl_ProcessingListName", "Value": "MeetingSummaryRuns" },
+    { "SchemaName": "ecl_TranscriptRetryDelayMinutes", "Value": "5" },
+    { "SchemaName": "ecl_TranscriptMaximumAttempts", "Value": "6" }
+  ],
+  "ConnectionReferences": [
+    {
+      "LogicalName": "ecl_shared_sharepointonline",
+      "ConnectionId": "REPLACE_WITH_SHAREPOINT_CONNECTION_ID",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline"
+    },
+    {
+      "LogicalName": "ecl_shared_graphgateway",
+      "ConnectionId": "REPLACE_WITH_GRAPH_GATEWAY_CONNECTION_ID",
+      "ConnectorId": "/providers/Microsoft.PowerApps/apis/shared_eclgraphtranscriptgateway"
+    }
+  ]
+}

@@ -1,0 +1,542 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "api": {
+          "name": "shared_sharepointonline"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_sharepointonline"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_approvals": {
+        "api": {
+          "name": "shared_approvals"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_approvals"
+        },
+        "runtimeSource": "embedded"
+      },
+      "shared_office365": {
+        "api": {
+          "name": "shared_office365"
+        },
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_office365"
+        },
+        "runtimeSource": "embedded"
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "Processing List Name (ecl_ProcessingListName)": {
+          "defaultValue": "MeetingSummaryRuns",
+          "type": "String",
+          "metadata": {
+            "schemaName": "ecl_ProcessingListName"
+          }
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created_or_modified": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+              "table": "@parameters('Processing List Name (ecl_ProcessingListName)')"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "recurrence": {
+            "interval": 1,
+            "frequency": "Minute"
+          },
+          "conditions": [
+            {
+              "expression": "@and(equals(triggerOutputs()?['body/Status/Value'], 'PendingApproval'), equals(triggerOutputs()?['body/ApprovalStarted/Value'], 'No'))"
+            }
+          ],
+          "splitOn": "@triggerOutputs()?['body/value']",
+          "metadata": {
+            "operationMetadataId": "1a70a57a-8cf9-4b1c-945d-ce9f01823829"
+          }
+        }
+      },
+      "actions": {
+        "Lock_Approval_Item": {
+          "type": "OpenApiConnection",
+          "inputs": {
+            "parameters": {
+              "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+              "parameters/method": "POST",
+              "parameters/uri": "_api/web/lists/GetByTitle('MeetingSummaryRuns')/items(@{triggerOutputs()?['body/ID']})",
+              "parameters/headers": {
+                "Accept": "application/json;odata=nometadata",
+                "Content-Type": "application/json;odata=nometadata",
+                "IF-MATCH": "*",
+                "X-HTTP-Method": "MERGE"
+              },
+              "parameters/body": "{\n  \"ApprovalStarted\": \"Yes\"\n}"
+            },
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "operationId": "HttpRequest",
+              "connectionName": "shared_sharepointonline"
+            }
+          },
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "1c08f0a8-1ab7-4a70-ad1d-6344404b9aea"
+          }
+        },
+        "Parse_Summary_JSON": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@json(triggerOutputs()?['body/SummaryJson'])",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "recap": {
+                  "type": "string"
+                },
+                "decisions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "decision": {
+                        "type": "string"
+                      },
+                      "made_by": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "decision",
+                      "made_by",
+                      "evidence"
+                    ]
+                  }
+                },
+                "action_items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "task": {
+                        "type": "string"
+                      },
+                      "owner": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "due_date": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "task",
+                      "owner",
+                      "due_date",
+                      "evidence"
+                    ]
+                  }
+                },
+                "open_questions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "question": {
+                        "type": "string"
+                      },
+                      "owner": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "evidence": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "question",
+                      "owner",
+                      "evidence"
+                    ]
+                  }
+                },
+                "warnings": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "recap",
+                "decisions",
+                "action_items",
+                "open_questions",
+                "warnings"
+              ]
+            }
+          },
+          "runAfter": {
+            "Lock_Approval_Item": [
+              "Succeeded"
+            ]
+          },
+          "metadata": {
+            "operationMetadataId": "2ddb9f6f-eb9b-4ef4-a5e1-6fa5b32f6170"
+          }
+        },
+        "Run_Approval_Once": {
+          "type": "foreach",
+          "foreach": "@createArray('single-run')",
+          "actions": {
+            "Compose_Approval_Notification_-_Loop_Safe": {
+              "type": "Compose",
+              "inputs": "## Meeting summary review\n\n**Meeting:** @{triggerBody()?['Title']}\n**Date:** @{triggerBody()?['MeetingStart']}\n**Organiser:** @{triggerBody()?['OrganizerEmail']}\n\n### Recap\n@{body('Parse_Summary_JSON')['recap']}\n\n### Decisions\n@{string(body('Parse_Summary_JSON')?['decisions'])}\n### Action items\n@{string(body('Parse_Summary_JSON')?['action_items'])}\n\n### Open questions\n@{string(body('Parse_Summary_JSON')?['open_questions'])}\n\n### Warnings\n@{join(body('Parse_Summary_JSON')?['warnings'], decodeUriComponent('%0A- '))}\n[Open the processing record]@{triggerBody()?['{Link}']}"
+            },
+            "Start_and_Wait_for_Summary_Approval_-_Loop_Safe": {
+              "type": "OpenApiConnectionWebhook",
+              "inputs": {
+                "parameters": {
+                  "approvalType": "CustomResponse",
+                  "WebhookApprovalCreationInput/responseOptions": [
+                    "Approve",
+                    "Reject",
+                    "Request Changes"
+                  ],
+                  "WebhookApprovalCreationInput/title": "Meeting Summary Review: @{triggerBody()?['Title']}",
+                  "WebhookApprovalCreationInput/assignedTo": "@triggerBody()?['OrganizerEmail']",
+                  "WebhookApprovalCreationInput/details": "@outputs('Compose_Approval_Notification_-_Loop_Safe')",
+                  "WebhookApprovalCreationInput/itemLink": "@triggerBody()?['{Link}']",
+                  "WebhookApprovalCreationInput/itemLinkDescription": "Open the MeetingSummaryRuns record",
+                  "WebhookApprovalCreationInput/enableNotifications": true,
+                  "WebhookApprovalCreationInput/enableReassignment": true
+                },
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_approvals",
+                  "operationId": "StartAndWaitForAnApproval",
+                  "connectionName": "shared_approvals"
+                }
+              },
+              "runAfter": {
+                "Compose_Approval_Notification_-_Loop_Safe": [
+                  "SUCCEEDED"
+                ]
+              }
+            },
+            "Switch_Approval_Outcome": {
+              "type": "Switch",
+              "expression": "@outputs('Start_and_Wait_for_Summary_Approval_-_Loop_Safe')?['body/outcome']",
+              "default": {
+                "actions": {}
+              },
+              "cases": {
+                "Approve": {
+                  "actions": {
+                    "Select_Decision_HTML_Rows": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('Parse_Summary_JSON')['decisions']",
+                        "select": "@concat(\n  '<tr><td><strong>',\n  replace(replace(replace(coalesce(item()?['decision'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</strong></td><td>',\n  replace(replace(replace(coalesce(item()?['made_by'], 'All / General Consensus'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</td><td><em>',\n  replace(replace(replace(coalesce(item()?['evidence'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</em></td></tr>'\n)"
+                      }
+                    },
+                    "Select_Action_Item_HTML_Rows": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('Parse_Summary_JSON')['action_items']",
+                        "select": "@concat(\n  '<tr><td><strong>',\n  replace(replace(replace(coalesce(item()?['task'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</strong></td><td><span class=\"badge owner-badge\">',\n  replace(replace(replace(coalesce(item()?['owner'], 'Unassigned'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</span></td><td><span class=\"badge date-badge\">',\n  replace(replace(replace(coalesce(item()?['due_date'], 'TBD'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</span></td><td><em>',\n  replace(replace(replace(coalesce(item()?['evidence'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</em></td></tr>'\n)"
+                      },
+                      "runAfter": {
+                        "Select_Decision_HTML_Rows": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Select_Open_Question_HTML_Items": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('Parse_Summary_JSON')['open_questions']",
+                        "select": "@concat(\n  '<li><strong>',\n  replace(replace(replace(coalesce(item()?['question'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</strong><br><span class=\"badge owner-badge\">',\n  replace(replace(replace(coalesce(item()?['owner'], 'Unassigned'), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</span><div class=\"evidence-block\"><em>',\n  replace(replace(replace(coalesce(item()?['evidence'], ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</em></div></li>'\n)"
+                      },
+                      "runAfter": {
+                        "Select_Action_Item_HTML_Rows": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Select_Warning_HTML_Items": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@body('Parse_Summary_JSON')['warnings']",
+                        "select": "@concat(\n  '<li>',\n  replace(replace(replace(coalesce(item(), ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'),\n  '</li>'\n)"
+                      },
+                      "runAfter": {
+                        "Select_Open_Question_HTML_Items": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Compose_Approved_Summary_HTML": {
+                      "type": "Compose",
+                      "inputs": "@concat(\n'<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\"><title>',\nreplace(replace(replace(coalesce(triggerOutputs()?['body/Title'],'Meeting Summary'),'&','&amp;'),'<','&lt;'),'>','&gt;'),\n' - Summary</title><style>\nbody{font-family:Segoe UI,Arial,sans-serif;line-height:1.6;color:#1f2937;max-width:900px;margin:40px auto;padding:0 20px;background:#f9fafb}\n.container{background:#fff;padding:36px;border:1px solid #e5e7eb;border-radius:12px}\nh1,h2{color:#1e3a8a}\nh1{margin-top:0}\nh2{margin-top:30px;border-left:4px solid #1e3a8a;padding-left:10px;font-size:18px}\n.meta,.recap{background:#eff6ff;padding:14px;border-radius:8px}\ntable{width:100%;border-collapse:collapse;font-size:14px}\nth,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}\nth{background:#f8fafc}\n.badge{display:inline-block;padding:2px 8px;border-radius:12px;background:#e0f2fe;color:#0369a1}\n.date-badge{background:#fef3c7;color:#92400e}\n.evidence-block{color:#6b7280;margin-top:4px}\n.warnings{background:#fffbeb;color:#92400e;border:1px solid #fef3c7;padding:14px;border-radius:8px}\n.empty{color:#6b7280;font-style:italic}\nfooter{margin-top:30px;border-top:1px solid #e5e7eb;padding-top:14px;color:#6b7280;font-size:12px}\n</style></head><body><div class=\"container\"><h1>',\nreplace(replace(replace(coalesce(triggerOutputs()?['body/Title'],'Meeting Summary'),'&','&amp;'),'<','&lt;'),'>','&gt;'),\n'</h1><div class=\"meta\"><strong>Date:</strong> ',\nformatDateTime(triggerOutputs()?['body/MeetingStart'],'yyyy-MM-dd HH:mm'),\n'<br><strong>Organiser:</strong> ',\nreplace(replace(replace(coalesce(triggerOutputs()?['body/OrganizerEmail'],'N/A'),'&','&amp;'),'<','&lt;'),'>','&gt;'),\n'<br><strong>Generated:</strong> ',\nformatDateTime(utcNow(),'yyyy-MM-dd'),\n'</div><h2>Executive Recap</h2><div class=\"recap\">',\nreplace(replace(replace(coalesce(body('Parse_Summary_JSON')?['recap'],'No recap provided.'),'&','&amp;'),'<','&lt;'),'>','&gt;'),\n'</div><h2>Key Decisions</h2>',\nif(\n  empty(body('Select_Decision_HTML_Rows')),\n  '<p class=\"empty\">No formal decisions recorded.</p>',\n  concat('<table><thead><tr><th>Decision</th><th>Made By</th><th>Evidence</th></tr></thead><tbody>',join(body('Select_Decision_HTML_Rows'),''),'</tbody></table>')\n),\n'<h2>Action Items</h2>',\nif(\n  empty(body('Select_Action_Item_HTML_Rows')),\n  '<p class=\"empty\">No action items recorded.</p>',\n  concat('<table><thead><tr><th>Task</th><th>Owner</th><th>Due Date</th><th>Evidence</th></tr></thead><tbody>',join(body('Select_Action_Item_HTML_Rows'),''),'</tbody></table>')\n),\n'<h2>Open Questions</h2>',\nif(\n  empty(body('Select_Open_Question_HTML_Items')),\n  '<p class=\"empty\">No open questions remaining.</p>',\n  concat('<ul>',join(body('Select_Open_Question_HTML_Items'),''),'</ul>')\n),\nif(\n  empty(body('Select_Warning_HTML_Items')),\n  '',\n  concat('<div class=\"warnings\"><h2>Warnings</h2><ul>',join(body('Select_Warning_HTML_Items'),''),'</ul></div>')\n),\n'<footer>Generated by ECL Power Automate Meeting Summary Automation — subject to human approval.</footer></div></body></html>'\n)",
+                      "runAfter": {
+                        "Select_Warning_HTML_Items": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Create_Approved_Summary_File": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "folderPath": "/Shared Documents/Meeting Summaries",
+                          "name": "@concat(\n  formatDateTime(triggerOutputs()?['body/MeetingStart'],'yyyy-MM-dd'),\n  '_',\n  replace(\n    replace(\n      replace(\n        replace(\n          replace(\n            replace(\n              replace(\n                replace(\n                  replace(coalesce(triggerOutputs()?['body/Title'],'Meeting'),'/','-'),\n                  decodeUriComponent('%5C'),'-'\n                ),\n                ':','-'\n              ),\n              '*',''\n            ),\n            '?',''\n          ),\n          '\"',''\n        ),\n        '<',''\n      ),\n      '>',''\n    ),\n    '|','-'\n  ),\n  '_Summary.html'\n)",
+                          "body": "@outputs('Compose_Approved_Summary_HTML')"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "CreateFile",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      },
+                      "runAfter": {
+                        "Compose_Approved_Summary_HTML": [
+                          "SUCCEEDED"
+                        ]
+                      },
+                      "runtimeConfiguration": {
+                        "contentTransfer": {
+                          "transferMode": "Chunked"
+                        }
+                      }
+                    },
+                    "Compose_Approved_By": {
+                      "type": "Compose",
+                      "inputs": "@coalesce(\n  first(body('Start_and_Wait_for_Summary_Approval_-_Loop_Safe')?['responses'])?['responder']?['displayName'],\n  first(body('Start_and_Wait_for_Summary_Approval_-_Loop_Safe')?['responses'])?['responder']?['email'],\n  'Unknown approver'\n)",
+                      "runAfter": {
+                        "Create_Approved_Summary_File": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Update_Approved_Audit_Record": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "parameters/method": "POST",
+                          "parameters/uri": "_api/web/lists/GetByTitle('MeetingSummaryRuns')/items(@{triggerBody()?['ID']})",
+                          "parameters/headers": {
+                            "Accept": "application/json;odata=nometadata",
+                            "Content-Type": "application/json;odata=nometadata",
+                            "IF-MATCH": "*",
+                            "X-HTTP-Method": "MERGE"
+                          },
+                          "parameters/body": "{\n  \"Status\": \"Approved\",\n  \"ApprovalOutcome\": \"Approve\",\n  \"ApprovedBy\": @{outputs('Compose_Approved_By')},\n  \"ApprovedOn\": @{utcNow()},\n  \"SummaryFileUrl\": @{outputs('Create_Approved_Summary_File')?['body/Path']},\n  \"ProcessedOn\": @{utcNow()}\n}"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "HttpRequest",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      },
+                      "runAfter": {
+                        "Compose_Approved_By": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Update_Approved_File_Metadata": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "table": "5f5242a3-85ea-4805-bf65-e76dc308113f",
+                          "id": "@outputs('Create_Approved_Summary_File')?['body/ItemId']",
+                          "item/Metadata": "Default"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "PatchFileItem",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      },
+                      "runAfter": {
+                        "Update_Approved_Audit_Record": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Send_Approved_Summary_Confirmation": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "emailMessage/To": "@triggerBody()?['OrganizerEmail']",
+                          "emailMessage/Subject": "Meeting summary approved:@{outputs('Update_Approved_File_Metadata')?['body/Title']}",
+                          "emailMessage/Body": "<p class=\"editor-paragraph\">@{concat(\n  '<p>The meeting summary for <strong>',\n  replace(replace(replace(coalesce(triggerOutputs()?['body/Title'],'Meeting'),'&','&amp;'),'<','&lt;'),'>','&gt;'),\n  '</strong> has been approved and published.</p>',\n  '<p><a href=\"',\n  'https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery',\n  replace(outputs('Create_Approved_Summary_File')?['body/Path'],' ','%20'),\n  '\">Open the approved meeting summary</a></p>'\n)}</p>",
+                          "emailMessage/Importance": "Normal"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "operationId": "SendEmailV2",
+                          "connectionName": "shared_office365"
+                        }
+                      },
+                      "runAfter": {
+                        "Update_Approved_File_Metadata": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    }
+                  },
+                  "case": "Approve"
+                },
+                "Request_changes": {
+                  "actions": {
+                    "Update_Revision_Requested_Record": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "parameters/method": "POST",
+                          "parameters/uri": "_api/web/lists/GetByTitle('MeetingSummaryRuns')/items(@{triggerBody()?['ID']})",
+                          "parameters/headers": {
+                            "Accept": "application/json;odata=nometadata",
+                            "Content-Type": "application/json;odata=nometadata",
+                            "IF-MATCH": "*",
+                            "X-HTTP-Method": "MERGE"
+                          }
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "HttpRequest",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      },
+                      "runAfter": {
+                        "Compose_Revision_Comments": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Send_Revision_Requested_Notification": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "emailMessage/To": "@triggerBody()?['OrganizerEmail']",
+                          "emailMessage/Subject": "Changes requested:@{triggerBody()?['Title']}",
+                          "emailMessage/Body": "<p class=\"editor-paragraph\"><b><strong class=\"editor-text-bold\">Changes have been requested for this meeting summary.</strong></b><br><br>Meeting:<br>@{triggerBody()?['Title']}<br><br>Approver comments:<br>@{outputs('Compose_Revision_Comments')}<br><br>Open the processing record:<br>@{triggerBody()?['{Link}']}<br><br>Update or regenerate the structured summary before resubmitting it for approval.</p>",
+                          "emailMessage/Importance": "Normal"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_office365",
+                          "operationId": "SendEmailV2",
+                          "connectionName": "shared_office365"
+                        }
+                      },
+                      "runAfter": {
+                        "Update_Revision_Requested_Record": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    },
+                    "Compose_Revision_Comments": {
+                      "type": "Compose",
+                      "inputs": "@coalesce(\n  first(body('Start_and_Wait_for_Summary_Approval_-_Loop_Safe')?['responses'])?['comments'],\n  'No comments supplied.'\n)"
+                    }
+                  },
+                  "case": "Request changes"
+                },
+                "Reject": {
+                  "actions": {
+                    "Compose_Rejection_Comments": {
+                      "type": "Compose",
+                      "inputs": "@coalesce(\n  first(body('Start_and_Wait_for_Summary_Approval_-_Loop_Safe')?['responses'])?['comments'],\n  'No comments supplied.'\n)"
+                    },
+                    "Update_Rejected_Audit_Record": {
+                      "type": "OpenApiConnection",
+                      "inputs": {
+                        "parameters": {
+                          "dataset": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+                          "parameters/method": "POST",
+                          "parameters/uri": "_api/web/lists/GetByTitle('MeetingSummaryRuns')/items(@{triggerBody()?['ID']})",
+                          "parameters/headers": {
+                            "Accept": "application/json;odata=nometadata",
+                            "Content-Type": "application/json;odata=nometadata",
+                            "IF-MATCH": "*",
+                            "X-HTTP-Method": "MERGE"
+                          },
+                          "parameters/body": "{\n  \"Status\": \"Rejected\",\n  \"ApprovalOutcome\": \"Reject\",\n  \"ApprovalComments\": @{outputs('Compose_Rejection_Comments')},\n  \"ProcessedOn\": @{utcNow()}\n}"
+                        },
+                        "host": {
+                          "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                          "operationId": "HttpRequest",
+                          "connectionName": "shared_sharepointonline"
+                        }
+                      },
+                      "runAfter": {
+                        "Compose_Rejection_Comments": [
+                          "SUCCEEDED"
+                        ]
+                      }
+                    }
+                  },
+                  "case": "Reject"
+                }
+              },
+              "runAfter": {
+                "Start_and_Wait_for_Summary_Approval_-_Loop_Safe": [
+                  "SUCCEEDED"
+                ]
+              }
+            }
+          },
+          "runAfter": {
+            "Parse_Summary_JSON": [
+              "SUCCEEDED"
+            ]
+          }
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

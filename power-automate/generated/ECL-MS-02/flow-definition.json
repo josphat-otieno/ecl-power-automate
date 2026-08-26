@@ -1,0 +1,394 @@
+{
+  "properties": {
+    "displayName": "ECL-MS-02 - Retrieve Teams Transcript",
+    "state": "Stopped",
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_sharepointonline"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      },
+      "shared_eclgraphtranscriptgateway": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_graphgateway"
+        },
+        "api": {
+          "name": "shared_eclgraphtranscriptgateway"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        },
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "ecl_SharePointSiteUrl": {
+          "type": "String"
+        },
+        "ecl_ProcessingListName": {
+          "type": "String"
+        },
+        "ecl_TranscriptRetryDelayMinutes": {
+          "type": "Int"
+        },
+        "ecl_TranscriptMaximumAttempts": {
+          "type": "Int"
+        }
+      },
+      "triggers": {
+        "When_an_item_is_created_or_modified": {
+          "type": "OpenApiConnection",
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 1
+          },
+          "inputs": {
+            "host": {
+              "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+              "connectionName": "shared_sharepointonline",
+              "operationId": "GetOnUpdatedItems"
+            },
+            "parameters": {
+              "dataset": "@parameters('ecl_SharePointSiteUrl')",
+              "table": "@parameters('ecl_ProcessingListName')"
+            }
+          },
+          "conditions": [
+            {
+              "expression": "@equals(triggerOutputs()?['body/Status/Value'], 'Queued')"
+            }
+          ],
+          "runtimeConfiguration": {
+            "concurrency": {
+              "runs": 1
+            }
+          }
+        }
+      },
+      "actions": {
+        "Initialize_AttemptCount": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "AttemptCount",
+                "type": "integer",
+                "value": "@int(coalesce(triggerOutputs()?['body/AttemptCount'], 0))"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Initialize_Transcripts": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Transcripts",
+                "type": "array",
+                "value": []
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_AttemptCount": ["Succeeded"]
+          }
+        },
+        "Try": {
+          "type": "Scope",
+          "actions": {
+            "Set_ResolvingMeeting": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                  "table": "@parameters('ecl_ProcessingListName')",
+                  "id": "@triggerOutputs()?['body/ID']",
+                  "item/Status/Value": "ResolvingMeeting",
+                  "item/ErrorCode": null,
+                  "item/ErrorDetails": null
+                }
+              },
+              "runAfter": {}
+            },
+            "Resolve_Meeting": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_eclgraphtranscriptgateway",
+                  "connectionName": "shared_eclgraphtranscriptgateway",
+                  "operationId": "ResolveMeeting"
+                },
+                "parameters": {
+                  "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']",
+                  "joinUrl": "@triggerOutputs()?['body/JoinUrl']"
+                }
+              },
+              "runtimeConfiguration": {
+                "secureData": {
+                  "properties": ["inputs", "outputs"]
+                }
+              },
+              "runAfter": {
+                "Set_ResolvingMeeting": ["Succeeded"]
+              }
+            },
+            "Store_Meeting_ID": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                  "table": "@parameters('ecl_ProcessingListName')",
+                  "id": "@triggerOutputs()?['body/ID']",
+                  "item/MeetingId": "@body('Resolve_Meeting')?['id']",
+                  "item/Status/Value": "WaitingForTranscript"
+                }
+              },
+              "runAfter": {
+                "Resolve_Meeting": ["Succeeded"]
+              }
+            },
+            "Wait_For_Transcript": {
+              "type": "Until",
+              "expression": "@or(greater(length(variables('Transcripts')), 0), greaterOrEquals(variables('AttemptCount'), parameters('ecl_TranscriptMaximumAttempts')))",
+              "limit": {
+                "count": 60,
+                "timeout": "PT6H"
+              },
+              "actions": {
+                "List_Transcripts": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_eclgraphtranscriptgateway",
+                      "connectionName": "shared_eclgraphtranscriptgateway",
+                      "operationId": "ListTranscripts"
+                    },
+                    "parameters": {
+                      "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']",
+                      "meetingId": "@body('Resolve_Meeting')?['id']"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": ["inputs", "outputs"]
+                    }
+                  },
+                  "runAfter": {}
+                },
+                "Capture_Transcripts": {
+                  "type": "SetVariable",
+                  "inputs": {
+                    "name": "Transcripts",
+                    "value": "@coalesce(body('List_Transcripts')?['value'], json('[]'))"
+                  },
+                  "runAfter": {
+                    "List_Transcripts": ["Succeeded"]
+                  }
+                },
+                "Increment_Attempt": {
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "AttemptCount",
+                    "value": 1
+                  },
+                  "runAfter": {
+                    "Capture_Transcripts": ["Succeeded"]
+                  }
+                },
+                "Persist_Attempt": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PatchItem"
+                    },
+                    "parameters": {
+                      "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                      "table": "@parameters('ecl_ProcessingListName')",
+                      "id": "@triggerOutputs()?['body/ID']",
+                      "item/AttemptCount": "@variables('AttemptCount')"
+                    }
+                  },
+                  "runAfter": {
+                    "Increment_Attempt": ["Succeeded"]
+                  }
+                },
+                "Delay_If_Empty": {
+                  "type": "If",
+                  "expression": {
+                    "equals": ["@length(variables('Transcripts'))", 0]
+                  },
+                  "actions": {
+                    "Delay": {
+                      "type": "Wait",
+                      "inputs": {
+                        "interval": {
+                          "count": "@parameters('ecl_TranscriptRetryDelayMinutes')",
+                          "unit": "Minute"
+                        }
+                      }
+                    }
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "runAfter": {
+                    "Persist_Attempt": ["Succeeded"]
+                  }
+                }
+              },
+              "runAfter": {
+                "Store_Meeting_ID": ["Succeeded"]
+              }
+            },
+            "Transcript_Available": {
+              "type": "If",
+              "expression": {
+                "greater": ["@length(variables('Transcripts'))", 0]
+              },
+              "actions": {
+                "Select_Latest_Transcript": {
+                  "type": "Compose",
+                  "inputs": "@last(variables('Transcripts'))"
+                },
+                "Get_Transcript_Content": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_eclgraphtranscriptgateway",
+                      "connectionName": "shared_eclgraphtranscriptgateway",
+                      "operationId": "GetTranscriptContent"
+                    },
+                    "parameters": {
+                      "organizerUserId": "@triggerOutputs()?['body/OrganizerUserId']",
+                      "meetingId": "@body('Resolve_Meeting')?['id']",
+                      "transcriptId": "@outputs('Select_Latest_Transcript')?['id']"
+                    }
+                  },
+                  "runtimeConfiguration": {
+                    "secureData": {
+                      "properties": ["inputs", "outputs"]
+                    }
+                  },
+                  "runAfter": {
+                    "Select_Latest_Transcript": ["Succeeded"]
+                  }
+                },
+                "Normalize_VTT_Body": {
+                  "type": "Compose",
+                  "inputs": "@if(empty(body('Get_Transcript_Content')?['$content']), string(body('Get_Transcript_Content')), base64ToString(body('Get_Transcript_Content')?['$content']))",
+                  "runAfter": {
+                    "Get_Transcript_Content": ["Succeeded"]
+                  }
+                },
+                "Mark_Transcript_Ready": {
+                  "type": "OpenApiConnection",
+                  "inputs": {
+                    "host": {
+                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                      "connectionName": "shared_sharepointonline",
+                      "operationId": "PatchItem"
+                    },
+                    "parameters": {
+                      "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                      "table": "@parameters('ecl_ProcessingListName')",
+                      "id": "@triggerOutputs()?['body/ID']",
+                      "item/TranscriptId": "@outputs('Select_Latest_Transcript')?['id']",
+                      "item/Status/Value": "TranscriptReady",
+                      "item/ProcessedOn": "@utcNow()"
+                    }
+                  },
+                  "runAfter": {
+                    "Normalize_VTT_Body": ["Succeeded"]
+                  }
+                }
+              },
+              "else": {
+                "actions": {
+                  "Mark_Transcript_Unavailable": {
+                    "type": "OpenApiConnection",
+                    "inputs": {
+                      "host": {
+                        "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                        "connectionName": "shared_sharepointonline",
+                        "operationId": "PatchItem"
+                      },
+                      "parameters": {
+                        "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                        "table": "@parameters('ecl_ProcessingListName')",
+                        "id": "@triggerOutputs()?['body/ID']",
+                        "item/Status/Value": "TranscriptUnavailable",
+                        "item/ErrorCode": "TRANSCRIPT_NOT_READY",
+                        "item/ProcessedOn": "@utcNow()"
+                      }
+                    },
+                    "runAfter": {}
+                  }
+                }
+              },
+              "runAfter": {
+                "Wait_For_Transcript": ["Succeeded"]
+              }
+            }
+          },
+          "runAfter": {
+            "Initialize_Transcripts": ["Succeeded"]
+          }
+        },
+        "Catch": {
+          "type": "Scope",
+          "actions": {
+            "Mark_Failed": {
+              "type": "OpenApiConnection",
+              "inputs": {
+                "host": {
+                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                  "connectionName": "shared_sharepointonline",
+                  "operationId": "PatchItem"
+                },
+                "parameters": {
+                  "dataset": "@parameters('ecl_SharePointSiteUrl')",
+                  "table": "@parameters('ecl_ProcessingListName')",
+                  "id": "@triggerOutputs()?['body/ID']",
+                  "item/Status/Value": "Failed",
+                  "item/ErrorCode": "TRANSCRIPT_FLOW_FAILED",
+                  "item/ErrorDetails": "Flow 02 failed. Review secure run history and gateway correlation IDs.",
+                  "item/ProcessedOn": "@utcNow()"
+                }
+              },
+              "runAfter": {}
+            }
+          },
+          "runAfter": {
+            "Try": ["Failed", "TimedOut"]
+          }
+        }
+      },
+      "outputs": {}
+    }
+  }
+}

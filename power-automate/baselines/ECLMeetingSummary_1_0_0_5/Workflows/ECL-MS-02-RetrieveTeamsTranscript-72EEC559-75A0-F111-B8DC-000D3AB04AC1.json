@@ -1,0 +1,213 @@
+{
+  "properties": {
+    "connectionReferences": {},
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "defaultValue": {},
+          "type": "SecureObject"
+        },
+        "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+        }
+      },
+      "triggers": {
+        "manual": {
+          "metadata": {
+            "operationMetadataId": "53956bad-454a-4d29-9f73-c49497d48d82"
+          },
+          "type": "Request",
+          "kind": "Button",
+          "inputs": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "description": "https://teams.microsoft.com/l/meetup-join/19%3ameeting_OTlkMTNiMTEtZTgzMS00ZTQzLTlkZGEtZWUxOWYxNmEzNDU1%40thread.v2/0?context=%7b%22Tid%22%3a%22fdbf7d02-5b50-453d-a281-271ed6c13a80%22%2c%22Oid%22%3a%22392f054f-515e-4796-a408-67568dc5603f%22%7d",
+                  "title": "JoinUrl",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                },
+                "text_1": {
+                  "description": "Optional test identifier",
+                  "title": "TestRunId",
+                  "type": "string",
+                  "x-ms-content-hint": "TEXT",
+                  "x-ms-dynamically-added": true
+                }
+              },
+              "required": [
+                "text",
+                "text_1"
+              ]
+            }
+          }
+        }
+      },
+      "actions": {
+        "POC_Placeholder": {
+          "runAfter": {},
+          "metadata": {
+            "operationMetadataId": "0a55c2cf-1a1e-4860-82bf-282b9f732582"
+          },
+          "type": "Compose",
+          "inputs": "POC setup"
+        },
+        "Initialize_AttemptCount": {
+          "runAfter": {
+            "POC_Placeholder": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "AttemptCount",
+                "type": "integer",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "Initialize_Transcripts": {
+          "runAfter": {
+            "Initialize_AttemptCount": [
+              "Succeeded"
+            ]
+          },
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "Transcripts",
+                "type": "array"
+              }
+            ]
+          }
+        },
+        "Scope_-_Try": {
+          "actions": {
+            "Wait_For_Transcript": {
+              "actions": {
+                "Increment_Attempt": {
+                  "type": "IncrementVariable",
+                  "inputs": {
+                    "name": "AttemptCount",
+                    "value": 1
+                  }
+                },
+                "Transcript_List_Empty": {
+                  "actions": {
+                    "Delay_If_Empty": {
+                      "type": "Wait",
+                      "inputs": {
+                        "interval": {
+                          "count": "@int(parameters('ecl_TranscriptRetryDelayMinutes'))",
+                          "unit": "Minute"
+                        }
+                      }
+                    }
+                  },
+                  "runAfter": {
+                    "Increment_Attempt": [
+                      "Succeeded"
+                    ]
+                  },
+                  "else": {
+                    "actions": {}
+                  },
+                  "expression": {
+                    "and": [
+                      {
+                        "equals": [
+                          "@length(variables('Transcripts'))",
+                          "@0"
+                        ]
+                      }
+                    ]
+                  },
+                  "type": "If"
+                }
+              },
+              "runAfter": {
+                "Transcript_Available": [
+                  "Succeeded"
+                ]
+              },
+              "expression": "@equals(or(greater(length(variables('Transcripts')), 0), greaterOrEquals(variables('AttemptCount'), int(parameters('ecl_TranscriptMaximumAttempts')))),true)",
+              "limit": {
+                "count": 60,
+                "timeout": "PT1H"
+              },
+              "type": "Until"
+            },
+            "Transcript_Available": {
+              "actions": {
+                "Select_Latest_Transcript": {
+                  "type": "Compose",
+                  "inputs": "@last(sort(variables('Transcripts'), 'createdDateTime'))"
+                }
+              },
+              "else": {
+                "actions": {
+                  "Stop_-_Transcript_Unavailable": {
+                    "type": "Terminate",
+                    "inputs": {
+                      "runStatus": "Succeeded"
+                    }
+                  }
+                }
+              },
+              "expression": {
+                "and": [
+                  {
+                    "greater": [
+                      "@length(variables('Transcripts'))",
+                      "@0"
+                    ]
+                  }
+                ]
+              },
+              "type": "If"
+            }
+          },
+          "runAfter": {
+            "Initialize_Transcripts": [
+              "Succeeded"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Scope_-_Catch": {
+          "actions": {},
+          "runAfter": {
+            "Scope_-_Try": [
+              "TimedOut",
+              "Failed"
+            ]
+          },
+          "type": "Scope"
+        },
+        "Scope_-_Finally": {
+          "actions": {},
+          "runAfter": {
+            "Scope_-_Catch": [
+              "Succeeded",
+              "TimedOut",
+              "Skipped",
+              "Failed"
+            ]
+          },
+          "type": "Scope"
+        }
+      }
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

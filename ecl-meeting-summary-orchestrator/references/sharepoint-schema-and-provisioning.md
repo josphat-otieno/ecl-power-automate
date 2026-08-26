@@ -54,14 +54,14 @@ The `Status` column governs flow triggers and handoffs across the pipeline:
           │         │                      │
           │         └─► (Retries) ─► TranscriptUnavailable (Terminal)
           │
-[Flow 03] └─► Summarising ───────► PendingApproval
+[Flow 03] └─► Summarising ───────► ReadyToPublish
                                            │
-[Flow 04] ┌────────────────────────────────┴──────────────────────────────┐
-          ▼                                ▼                              ▼
-       Approved                    RevisionRequested                   Rejected
-      (Terminal)                       (Actionable)                   (Terminal)
-          │
-[Flow 05] └─► (Optional Odoo Write)
+[Flow 04]                                  ├─► Publishing ──► Published
+                                           │                     (Terminal)
+                                           └─► PublicationFailed
+                                                   (Retryable)
+                                                                 │
+[Flow 05]                                      (Optional Odoo Write)
 ```
 
 ### Complete Status Value Reference
@@ -73,6 +73,10 @@ The `Status` column governs flow triggers and handoffs across the pipeline:
 | `WaitingForTranscript` | Flow 02 (Transcript) | Waiting for delayed Teams transcript generation (retry loop). |
 | `TranscriptReady` | Flow 02 (Transcript) | VTT retrieved, cleaned, and verified. Ready for Flow 03. |
 | `Summarising` | Flow 03 (Summarisation) | LLM chunking, prompting, and schema merging in progress. |
+| `ReadyToPublish` | Flow 03 → Flow 04 | Valid `SummaryJson` is ready for automatic SharePoint publication. |
+| `Publishing` | Flow 04 (Publication) | SharePoint document creation and metadata update are in progress. |
+| `Published` | Flow 04 (Publication) | Summary was written successfully to SharePoint. |
+| `PublicationFailed` | Flow 04 (Error) | Publication failed and can be retried without rerunning summarisation. |
 | `PendingApproval` | Flow 03 $\rightarrow$ Flow 04 | Valid `SummaryJson` stored; waiting for Flow 04 approval trigger. |
 | `Approved` | Flow 04 (Approval) | Human approved. Summary published to SharePoint document library. |
 | `RevisionRequested` | Flow 04 (Approval) | Approver requested edits. `ApprovalComments` populated. |
@@ -103,6 +107,8 @@ Published meeting summary documents (HTML, Markdown, or PDF) are stored in month
 | `MeetingId` | `MeetingId` | Single line of text | Microsoft Graph online meeting ID. |
 | `ApprovedBy` | `ApprovedBy` | Single line of text | Approver identity. |
 | `ApprovedOn` | `ApprovedOn` | Date and Time | Approval timestamp. |
+| `GeneratedOn` | `GeneratedOn` | Date and Time | Timestamp when the automatic summary document was generated. |
+| `ProcessingItemId` | `ProcessingItemId` | Number | Stable link to the source processing item and publication idempotency key. |
 
 ---
 
