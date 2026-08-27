@@ -7,6 +7,24 @@ description: Orient a new owner of the ECL Meeting Summary Power Automate projec
 
 Help a new user form an accurate mental model, find the current state, and choose the smallest useful next action. Do not assume the repository overview, an old solution export, or a previous handoff still reflects the latest design.
 
+## Begin by identifying the user's goal
+
+If the user invokes the skill without a clear task, do not immediately give a full project explanation. Ask one short question:
+
+```text
+What would you like to do with the ECL Meeting Summary project?
+
+1. Understand how the project works
+2. Review current progress and blockers
+3. Continue the implementation
+4. Troubleshoot a problem
+5. Prepare to share, hand over, test, or deploy the solution
+```
+
+Allow a free-form answer. If an interactive choice tool is available, it may be used with broader grouped choices, but do not require it. After the user chooses, inspect only the evidence and references needed for that goal.
+
+Do not ask this question when the user's request already makes their goal clear. In that case, acknowledge the goal and proceed directly. Ask at most one follow-up question only when a missing answer would materially change the recommended path, environment, or permissions.
+
 ## Start with current evidence
 
 Before reporting status or recommending work, read:
