@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="ecl_GraphGatewayFunctionKey">
+  <defaultvalue></defaultvalue>
+  <displayname default="Graph Gateway Function Key">
+    <label description="Graph Gateway Function Key" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.7</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000000</type>
+</environmentvariabledefinition>

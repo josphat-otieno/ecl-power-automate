@@ -10,4 +10,6 @@ The first build contract is Flow 02 because Graph meeting resolution and transcr
 
 `baselines/ECLMeetingSummary_1_0_0_5.zip` is the current Development baseline containing the complete saved Flow 01 correction. Use `1.0.0.5`, not `1.0.0.3`, as the source for Flow 02 packaging.
 
+`generated/ECLMeetingSummary_1_0_0_7_flow01_teams_dispatch.zip` is the targeted draft/off implementation of the revised Teams-led, multi-organizer Flow 01. It discovers available scheduled-meeting transcripts through the Graph gateway rather than scanning one Outlook calendar. Provision the organizer registry and unique `DispatchKey`, update/import gateway connector version `1.1.0`, and map both connection references before importing or enabling it.
+
 The next implementation plan is `plans/ECL-MS-02-implementation-plan.md`. Flow 02 must be packaged as a targeted update so the active unpublished Flow 03 revision is not overwritten.

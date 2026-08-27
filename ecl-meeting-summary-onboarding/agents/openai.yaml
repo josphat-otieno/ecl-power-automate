@@ -1,0 +1,4 @@
+interface:
+  display_name: "ECL Meeting Summary Onboarding"
+  short_description: "Orient new owners and identify the next project step"
+  default_prompt: "Use $ecl-meeting-summary-onboarding to explain this project and tell me where to start."

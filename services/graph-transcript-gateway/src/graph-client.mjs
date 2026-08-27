@@ -3,6 +3,9 @@ import { readFile } from "node:fs/promises";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const USER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_DISCOVERY_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MAX_DISCOVERY_PAGES = 20;
+const MAX_DISCOVERY_ITEMS = 2000;
 
 export class GatewayError extends Error {
   constructor(message, { status = 500, code = "GATEWAY_ERROR", requestId } = {}) {
@@ -51,6 +54,57 @@ export function assertTeamsJoinUrl(value) {
     });
   }
   return value;
+}
+
+export function assertUtcTimestamp(value, name) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(value)) {
+    throw new GatewayError(`${name} must be an ISO 8601 UTC timestamp.`, {
+      status: 400,
+      code: "DISCOVERY_TIME_INVALID"
+    });
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    throw new GatewayError(`${name} must be an ISO 8601 UTC timestamp.`, {
+      status: 400,
+      code: "DISCOVERY_TIME_INVALID"
+    });
+  }
+  return { value, milliseconds: parsed };
+}
+
+export function assertDiscoveryWindow(startDateTime, endDateTime) {
+  const start = assertUtcTimestamp(startDateTime, "startDateTime");
+  const end = assertUtcTimestamp(endDateTime, "endDateTime");
+  const duration = end.milliseconds - start.milliseconds;
+  if (duration <= 0 || duration > MAX_DISCOVERY_WINDOW_MS) {
+    throw new GatewayError("Transcript discovery must use a positive window no longer than 24 hours.", {
+      status: 400,
+      code: "DISCOVERY_WINDOW_INVALID"
+    });
+  }
+  return { startDateTime: start.value, endDateTime: end.value };
+}
+
+export function assertDiscoveryCheckpoint(value, organizerUserId) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new GatewayError("Transcript discovery checkpoint is invalid.", {
+      status: 400,
+      code: "DISCOVERY_CHECKPOINT_INVALID"
+    });
+  }
+  const expectedPath = `/v1.0/users/${encodeURIComponent(organizerUserId)}/onlineMeetings/getAllTranscripts`;
+  const hasOpaqueToken = url.searchParams.has("$deltatoken") || url.searchParams.has("$skiptoken");
+  if (url.origin !== "https://graph.microsoft.com" || !url.pathname.startsWith(expectedPath) || !hasOpaqueToken) {
+    throw new GatewayError("Transcript discovery checkpoint is invalid.", {
+      status: 400,
+      code: "DISCOVERY_CHECKPOINT_INVALID"
+    });
+  }
+  return url.toString();
 }
 
 export async function createClientAssertion(config, now = Date.now()) {
@@ -153,7 +207,14 @@ export class GraphTranscriptClient {
   }
 
   async graphGet(path, accept = "application/json") {
-    const response = await this.fetchImpl(`${GRAPH_BASE_URL}${path}`, {
+    const url = path.startsWith("https://") ? new URL(path) : new URL(`${GRAPH_BASE_URL}${path}`);
+    if (url.origin !== "https://graph.microsoft.com" || !url.pathname.startsWith("/v1.0/")) {
+      throw new GatewayError("Microsoft Graph returned an invalid pagination URL.", {
+        status: 502,
+        code: "GRAPH_PAGINATION_INVALID"
+      });
+    }
+    const response = await this.fetchImpl(url, {
       headers: { Authorization: `Bearer ${await this.accessToken()}`, Accept: accept }
     });
     const body = await response.text();
@@ -169,12 +230,64 @@ export class GraphTranscriptClient {
     return accept === "application/json" ? JSON.parse(body) : body;
   }
 
+  async graphGetCollection(path) {
+    const value = [];
+    let next = path;
+    let pages = 0;
+    let deltaLink = null;
+    while (next) {
+      if (++pages > MAX_DISCOVERY_PAGES) {
+        throw new GatewayError("Microsoft Graph transcript discovery exceeded the page limit.", {
+          status: 502,
+          code: "GRAPH_PAGINATION_LIMIT"
+        });
+      }
+      const page = await this.graphGet(next);
+      if (!Array.isArray(page.value)) {
+        throw new GatewayError("Microsoft Graph returned an invalid transcript collection.", {
+          status: 502,
+          code: "GRAPH_RESPONSE_INVALID"
+        });
+      }
+      value.push(...page.value);
+      if (value.length > MAX_DISCOVERY_ITEMS) {
+        throw new GatewayError("Microsoft Graph transcript discovery exceeded the item limit.", {
+          status: 502,
+          code: "GRAPH_RESULT_LIMIT"
+        });
+      }
+      next = page["@odata.nextLink"] ?? null;
+      deltaLink = page["@odata.deltaLink"] ?? deltaLink;
+    }
+    return { value, deltaLink };
+  }
+
   resolveMeeting(organizerUserId, joinUrl) {
     assertOrganizerUserId(organizerUserId);
     assertTeamsJoinUrl(joinUrl);
     const filter = `JoinWebUrl eq '${joinUrl.replaceAll("'", "''")}'`;
     const query = new URLSearchParams({ "$filter": filter });
     return this.graphGet(`/users/${encodeURIComponent(organizerUserId)}/onlineMeetings?${query}`);
+  }
+
+  getMeeting(organizerUserId, meetingId) {
+    assertOrganizerUserId(organizerUserId);
+    if (!meetingId) throw new GatewayError("meetingId is required.", { status: 400, code: "MEETING_ID_REQUIRED" });
+    return this.graphGet(`/users/${encodeURIComponent(organizerUserId)}/onlineMeetings/${encodeURIComponent(meetingId)}`);
+  }
+
+  discoverTranscripts(organizerUserId, startDateTime, endDateTime, checkpoint = null) {
+    const organizer = assertOrganizerUserId(organizerUserId);
+    if (checkpoint) return this.graphGetCollection(assertDiscoveryCheckpoint(checkpoint, organizer));
+    const window = assertDiscoveryWindow(startDateTime, endDateTime);
+    const functionParameters = [
+      `meetingOrganizerUserId='${organizer}'`,
+      `startDateTime=${window.startDateTime}`,
+      `endDateTime=${window.endDateTime}`
+    ].join(",");
+    return this.graphGetCollection(
+      `/users/${encodeURIComponent(organizer)}/onlineMeetings/getAllTranscripts(${functionParameters})?$top=100`
+    );
   }
 
   listTranscripts(organizerUserId, meetingId) {

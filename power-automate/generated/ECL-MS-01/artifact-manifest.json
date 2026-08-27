@@ -1,0 +1,14 @@
+{
+  "solutionVersion": "1.0.0.7",
+  "sourceBaseline": "ECLMeetingSummary_1_0_0_5",
+  "workflowId": "560c2da9-37a1-f111-b8dc-000d3ab04ac1",
+  "workflowState": "Draft/Off",
+  "packageDirectory": "power-automate/generated/ECLMeetingSummary_1_0_0_7_flow01_teams_dispatch",
+  "packageZip": "power-automate/generated/ECLMeetingSummary_1_0_0_7_flow01_teams_dispatch.zip",
+  "prerequisites": [
+    "ecl_DefaultOrganizerUserId environment value",
+    "Unique MeetingSummaryRuns.EventID column",
+    "Graph gateway base URL and Azure Function key",
+    "OnlineMeetingTranscript.Read.All and tenant transcript access policy"
+  ]
+}

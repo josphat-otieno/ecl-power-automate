@@ -1,143 +1,249 @@
-# ECL-MS-04 automatic SharePoint publication plan
+# ECL-MS-04 — publish meeting summary to SharePoint
 
 ## Objective
 
-Repurpose component `{9bd376e9-cfa0-f111-b8dc-000d3ab04ac1}` from `Approve and Publish Summary` to `Publish Meeting Summary`.
+Replace the legacy approval flow with an automatic, idempotent SharePoint publisher. Every schema-valid item in `ReadyToPublish` is rendered to a safe HTML summary, stored once in the configured SharePoint library, and marked `Published` only after content, metadata, and URL verification succeed.
 
-Flow 04 receives no human response and uses no Approvals connector. It automatically publishes each schema-valid summary to SharePoint exactly once, then marks the processing record `Published`.
+Flow 04 creates no approval, sends no summary for review, retrieves no transcript, and calls no LLM.
 
-Keeping publication separate from Flow 03 allows a failed SharePoint publication to be retried without repeating transcript retrieval or paid LLM summarisation.
+## Required removal from the exported Flow 04
 
-## Revised lifecycle
+The `1.0.0.5` component `{9bd376e9-cfa0-f111-b8dc-000d3ab04ac1}` still contains obsolete approval behavior. Remove:
+
+- the Approvals connection reference;
+- the Outlook connection if it is used only for approval/publication email;
+- `ApprovalStarted` trigger conditions and locking;
+- `Start and wait for an approval`;
+- `Approve`, `Request Changes`, and `Reject` branches;
+- responder/comment handling; and
+- all approval notification actions.
+
+Retain only reusable schema parsing, HTML rendering, SharePoint file creation, and audit-update concepts after correcting their hard-coded values and idempotency gaps.
+
+## Authoritative input contract
+
+Flow 04 owns a `MeetingSummaryRuns` item only when:
+
+| Field | Requirement |
+|---|---|
+| `ID` | Positive SharePoint item ID |
+| `EventID` | Nonempty and unique |
+| `MeetingID` | Nonempty |
+| `OrganizerEntraUserID` | Nonempty |
+| `Title` | Nonempty |
+| `MeetingStart` | Valid date/time |
+| `SummaryJson` | Nonempty and valid against the Flow 03 schema |
+| `Status` | `ReadyToPublish` |
+| `SummaryFileUrl` | Empty |
+
+`OrganizerEmail` is optional publication metadata. It must not block publication when the current data model contains only the organizer's Entra ID.
+
+## Shared lifecycle
 
 ```text
 Flow 03: TranscriptReady -> Summarising -> ReadyToPublish
 Flow 04: ReadyToPublish -> Publishing -> Published
-                                      -> PublicationFailed
+                                   \-> PublicationFailed
 ```
 
-The existing approval-related statuses and fields may remain temporarily for backward compatibility, but new runs do not use `PendingApproval`, `ApprovalStarted`, `ApprovalOutcome`, `ApprovalComments`, `ApprovedBy`, or `ApprovedOn`.
+`Published` is terminal. `PublicationFailed` is recoverable without rerunning Flow 02 or Flow 03.
 
-## Current Flow 04 actions to remove
+## Configuration and connection boundary
 
-- Approvals connection reference and all approval actions.
-- `ApprovalStarted` trigger condition and lock.
-- `Run_Approval_Once` wrapper.
-- `Approve`, `Request Changes`, and `Reject` branches.
-- Approval-request notification content.
-- Approval outcome and responder-field updates.
+Use environment-specific configuration for:
 
-Retain and correct the useful summary parser, HTML construction, SharePoint file creation, metadata update, and optional completion email.
+- `ecl_SharePointSiteUrl`;
+- `ecl_ProcessingListName`;
+- summary library ID or name;
+- summary root folder;
+- expected metadata internal names; and
+- maximum rendered document size.
 
-## Confirmed SharePoint destination
+Flow 04 requires only the SharePoint connection unless a separately approved downstream Flow 05/Odoo handoff is enabled. Do not package live connection IDs, user-specific paths, credentials, or tenant URLs as action literals.
 
-- Library: `Shared Documents`
-- Folder: `Meeting Summaries`
-- Target: `Shared Documents/Meeting Summaries/YYYY-MM`
+Before implementation, verify the actual library and folder in the target environment. The currently observed target is `Shared Documents/Meeting Summaries`, but the environment configuration is authoritative.
 
-Before implementation, record the actual library ID, server-relative folder path, and metadata internal names. The target metadata contract is:
+## Trigger, lock, and idempotency
+
+1. Trigger when a `MeetingSummaryRuns` item is created or modified.
+2. Apply a trigger condition for `Status = ReadyToPublish`, nonempty `SummaryJson`, and empty `SummaryFileUrl`.
+3. Set trigger concurrency to one for the first production release.
+4. Re-read the item and its ETag at run start.
+5. Revalidate all eligibility fields from the current item, not the trigger payload.
+6. If it is no longer eligible, terminate as `Ignored` without changing it.
+7. Conditionally update the item from `ReadyToPublish` to `Publishing` using the current ETag.
+8. Re-read and verify `Publishing` before creating a file.
+
+Repeated SharePoint events may start runs, but only the run that acquires the status lock may publish.
+
+## Exact summary validation
+
+Parse `SummaryJson` against the same versioned schema used by Flow 03:
+
+- `recap` string;
+- `decisions[]` with `decision`, nullable `made_by`, and `evidence`;
+- `action_items[]` with `task`, nullable `owner`, nullable `due_date`, and `evidence`;
+- `open_questions[]` with `question`, nullable `owner`, and `evidence`; and
+- `warnings[]` of strings.
+
+Reject:
+
+- missing or unexpected top-level keys;
+- incorrect types;
+- missing evidence fields;
+- fields exceeding configured limits;
+- an oversized JSON or rendered document; and
+- unsupported prompt/schema versions.
+
+Invalid input creates no file and ends as `PublicationFailed` with `SUMMARY_JSON_INVALID`.
+
+## Safe HTML rendering
+
+Build one self-contained UTF-8 HTML document.
+
+1. HTML-escape title, dates, organizer metadata, recap, decisions, owners, due dates, evidence, questions, and warnings.
+2. Escape `&`, `<`, `>`, double quotes, and single quotes in the correct order.
+3. Treat all model text as untrusted content; never inject it into CSS, attributes, script, or raw HTML.
+4. Do not include JavaScript, external resources, tracking pixels, or active content.
+5. Render empty arrays as `None recorded` instead of empty or malformed tables.
+6. Use accessible headings and table headers.
+7. Include meeting title, meeting date, meeting ID, generation time, prompt version, and processing-item ID.
+8. Do not include the raw transcript, prompts, credentials, or model response envelopes.
+
+Test rendering with HTML/script payloads, Unicode, long values, null owners/dates, and empty arrays.
+
+## Deterministic destination and filename
+
+Create or reuse the monthly folder:
+
+```text
+{SummaryRootFolder}/YYYY-MM
+```
+
+Use the deterministic filename:
+
+```text
+YYYY-MM-DD_<sanitized-title>_<processing-item-id>_Summary.html
+```
+
+Requirements:
+
+1. Replace all SharePoint-invalid characters.
+2. Remove trailing spaces and periods.
+3. Collapse repeated separators.
+4. Use `Meeting` if sanitization leaves an empty title.
+5. Truncate only the title segment so the item ID and suffix remain intact.
+6. Enforce SharePoint filename and full-path limits after encoding.
+7. Never use user input as an unvalidated folder path.
+
+The processing-item ID makes publication stable even when titles collide.
+
+## Idempotent file creation
+
+1. Ensure the configured root and monthly folder exist; tolerate an already-existing folder.
+2. Look up the deterministic file path before creation.
+3. If no file exists, create it with fail-if-exists semantics.
+4. If a retry encounters an existing file, read its list metadata.
+5. Reuse it only when `ProcessingItemId`, `MeetingId`, and the expected path match the current run.
+6. Treat any mismatch as `PUBLICATION_CONFLICT`; never overwrite an unrelated file.
+7. After creation or safe reuse, update all required metadata.
+8. Read the file/list item back and verify content length is nonzero and metadata matches.
+9. Construct the user-facing URL from the verified SharePoint response, not by concatenating an unverified path.
+
+## Metadata contract
+
+Confirm internal names during deployment and populate:
 
 - `MeetingTitle`;
 - `EventDate`;
-- `OrganizerEmail`;
 - `MeetingId`;
-- `GeneratedOn`; and
-- `ProcessingItemId`.
+- `OrganizerEntraUserID` when the library supports it;
+- `OrganizerEmail` only when available;
+- `GeneratedOn`;
+- `ProcessingItemId`; and
+- `PromptVersion` when the library supports it.
 
-Flow 04 creates or reuses monthly folders named `YYYY-MM` under the confirmed folder.
+Metadata failure means publication has not completed, even if the file body exists.
 
-## Phase 1: trigger and idempotency
+## Finalization
 
-1. Trigger when a `MeetingSummaryRuns` item is created or modified.
-2. Trigger only when `Status = ReadyToPublish`, `SummaryJson` is nonempty, and `SummaryFileUrl` is empty.
-3. Set trigger concurrency to one for initial deployment.
-4. Re-read the current item at run start; do not rely only on the trigger payload.
-5. If it is no longer eligible, terminate as `Ignored` without creating a file.
-6. Set `Status = Publishing` and clear earlier publication error fields.
-7. Use the processing item ID as the stable publication key.
+Only after file content, metadata, and URL verification succeed, update `MeetingSummaryRuns`:
 
-## Phase 2: validate and render
+- `Status = Published`;
+- `SummaryFileUrl` = verified SharePoint URL;
+- `ErrorCode` and `ErrorDetails` = empty;
+- `ProcessedOn = utcNow()`.
 
-1. Parse `SummaryJson` using the exact Flow 03 schema.
-2. Reject malformed or incomplete JSON with `SUMMARY_JSON_INVALID`.
-3. Format recap, decisions, action items, open questions, and warnings as readable HTML.
-4. HTML-escape every title, owner, date, evidence snippet, warning, and metadata value.
-5. Render empty collections as clear messages rather than malformed tables.
-6. Include meeting title, meeting date, organizer, generation date, and processing-item reference.
-7. Do not include the raw transcript, prompts, secrets, or model response envelopes.
+No approval-related fields are read or written for new runs. A later Odoo integration may consume `Published` items, but its failure must not remove the SharePoint document or revert `Published`.
 
-## Phase 3: create the SharePoint artifact
+## Failure handling and repair
 
-1. Ensure the configured `YYYY-MM` folder exists.
-2. Generate a collision-resistant filename:
-   `YYYY-MM-DD_<sanitized-title>_<processing-item-id>_Summary.html`.
-3. Sanitize all SharePoint-invalid filename characters and enforce the supported filename length.
-4. Create the file using fail-if-exists behavior.
-5. If a retry finds the expected filename, verify its `ProcessingItemId` before treating it as the existing publication.
-6. Update the defined document metadata fields.
-7. Construct and verify the final web URL.
-8. Update the processing item only after file creation and metadata update succeed:
-   - `Status = Published`;
-   - `SummaryFileUrl` = verified URL;
-   - `ProcessedOn = utcNow()`;
-   - `ErrorCode` and `ErrorDetails` = empty.
+Use Try/Catch/Finally scopes with phase-specific errors:
 
-## Phase 4: completion notification
+| Condition | Error code |
+|---|---|
+| Invalid summary schema | `SUMMARY_JSON_INVALID` |
+| Invalid destination configuration | `PUBLICATION_CONFIG_INVALID` |
+| Folder or file creation failure | `SHAREPOINT_PUBLICATION_FAILED` |
+| Existing file belongs to another run | `PUBLICATION_CONFLICT` |
+| Metadata update/verification failure | `PUBLICATION_METADATA_FAILED` |
+| URL verification failure | `PUBLICATION_URL_INVALID` |
+| Unexpected failure | `PUBLICATION_FLOW_FAILED` |
 
-Sending email is optional and does not gate publication.
+On any handled publication failure:
 
-If enabled, send the organizer a short message containing the meeting title and verified SharePoint link. Email failure must not change `Published` back to `Failed`; record only a sanitized `PUBLICATION_NOTIFICATION_FAILED` warning if the list schema supports it.
+- set `Status = PublicationFailed`;
+- keep `SummaryJson` unchanged;
+- keep `SummaryFileUrl` empty unless a verified safe URL exists;
+- record phase plus correlation ID only in `ErrorDetails`; and
+- retain a safe partial file path only if a dedicated field is approved.
 
-## Phase 5: failure handling
+Never place summary JSON, transcript content, credentials, access tokens, or full SharePoint responses in error fields.
 
-Use Try/Catch/Finally scopes.
+## Retry procedure
 
-- Invalid summary: `Status = PublicationFailed`, `ErrorCode = SUMMARY_JSON_INVALID`.
-- Folder/file failure: `Status = PublicationFailed`, `ErrorCode = SHAREPOINT_PUBLICATION_FAILED`.
-- Metadata failure: retain the incomplete file and record its path for repair unless a separate cleanup policy is approved.
-- Unexpected failure: `Status = PublicationFailed`, `ErrorCode = PUBLICATION_FLOW_FAILED`.
-- `ErrorDetails` contains phase, processing item ID, and correlation ID only.
+1. Correct the configuration, permissions, library schema, or conflict.
+2. Change `PublicationFailed` back to `ReadyToPublish`.
+3. Leave `SummaryJson` unchanged.
+4. Flow 04 acquires the lock again and checks the deterministic path.
+5. It safely reuses a matching partial file or creates the missing file.
+6. Flow 02 and Flow 03 are not rerun.
 
-Never include `SummaryJson`, transcript text, secrets, access tokens, or full connector payloads in error fields.
+Do not implement unbounded automatic retries by repeatedly modifying the item.
 
-## Retry strategy
+## Test matrix
 
-To retry a failed publication:
+1. Valid synthetic summary creates one readable HTML file and reaches `Published`.
+2. Repeated trigger events create no duplicate file.
+3. Two items with the same title produce distinct filenames through item IDs.
+4. Empty arrays and null owners/dates render correctly.
+5. HTML/script payloads are displayed as text and cannot execute.
+6. Malformed, oversized, or wrong-version JSON creates no file.
+7. A metadata failure never reaches `Published`.
+8. File creation followed by list-update failure is repaired by safe reuse.
+9. A conflicting deterministic file is never overwritten.
+10. Missing optional organizer email does not block publication.
+11. `SummaryFileUrl` is verified and usable.
+12. End-to-end: Flow 03 sets `ReadyToPublish`; Flow 04 publishes once without approval.
 
-1. Correct the destination, connection, schema, or metadata issue.
-2. Set the item from `PublicationFailed` back to `ReadyToPublish`.
-3. Do not rerun Flow 02 or Flow 03.
-4. Confirm the stable filename prevents duplicate documents.
+## Packaging and release
 
-## Testing sequence
-
-1. Valid synthetic `SummaryJson` produces one readable HTML file.
-2. Repeated item modifications do not create a duplicate file.
-3. Empty arrays render correctly.
-4. Special characters in title and content are escaped safely.
-5. File metadata matches the processing record.
-6. Malformed JSON creates no file and ends as `PublicationFailed`.
-7. A metadata failure never produces `Published`.
-8. Retrying a failed item reuses or safely resolves the stable filename.
-9. Notification failure leaves a successfully published item as `Published`.
-10. End-to-end: Flow 03 sets `ReadyToPublish`; Flow 04 creates one file and sets `Published`.
-
-## Packaging strategy
-
-1. Use the newest successful live export after Flow 03 as the baseline.
-2. Preserve component ID `{9bd376e9-cfa0-f111-b8dc-000d3ab04ac1}` and change its display name to `ECL-MS-04 - Publish Meeting Summary`.
-3. Remove the Approvals connection from Flow 04 while leaving the solution-level reference only if another component still needs it.
-4. Add the new SharePoint status values before enabling the flow.
-5. Package Flow 04 as draft/off with its SharePoint connection and publication configuration.
-6. Run synthetic acceptance before enabling the automatic trigger.
-7. Re-export the successful version as the next baseline.
+1. Start from the newest tested export containing Flow 03.
+2. Preserve component ID `{9bd376e9-cfa0-f111-b8dc-000d3ab04ac1}`.
+3. Rename the display name to `ECL-MS-04 - Publish Meeting Summary`.
+4. Remove Approvals and approval-only Outlook references from the flow and solution when no other component uses them.
+5. Replace hard-coded site, list, library, and folder values with environment/configuration bindings.
+6. Package Flow 04 draft/off with only its required SharePoint connection.
+7. Test synthetic valid, invalid, duplicate, and partial-file cases before enabling it.
+8. Enable only after Flow 03 is producing the frozen schema.
+9. Re-export the tested solution as the next baseline.
 
 ## Definition of done
 
-- No approval request is created.
+- Flow 04 contains no approval action or approval connection.
 - Every valid `ReadyToPublish` item produces exactly one SharePoint document.
-- The processing item reaches `Published` only after file and metadata success.
-- Failed publications can be retried without rerunning the LLM.
-- Generated HTML is readable, escaped, and metadata-complete.
-- The verified SharePoint URL is stored in `SummaryFileUrl`.
+- `Published` is written only after content, metadata, and URL verification.
+- Publication failures can be repaired without rerunning transcript retrieval or the LLM.
+- Generated HTML is escaped, accessible, and metadata-complete.
+- Missing organizer email does not block the current requirement.
 - No transcript, secret, token, or sensitive connector payload is exposed.

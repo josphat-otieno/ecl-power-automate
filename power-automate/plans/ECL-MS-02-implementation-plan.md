@@ -1,138 +1,183 @@
-# ECL-MS-02 implementation plan
+# ECL-MS-02 — retrieve and clean Teams transcript
 
 ## Objective
 
-Finish `ECL-MS-02 - Retrieve Teams Transcript` as a manual proof of concept first, then connect it to the SharePoint queue only after meeting resolution and transcript retrieval pass against one approved organizer-owned Teams meeting.
+Implement Flow 02 as the reliable handoff between transcript discovery and summarisation. Flow 01 has already discovered an available scheduled-meeting transcript and written its identifiers to `MeetingSummaryRuns`; Flow 02 must retrieve that exact transcript, clean the WebVTT without losing speaker meaning, invoke Flow 03 in memory, and leave a clear terminal or recoverable state.
 
-## Current baseline
+Flow 02 must not search Outlook, resolve a join URL, list meetings, or poll for transcripts on the normal path.
 
-- Source package: `baselines/ECLMeetingSummary_1_0_0_5.zip`
-- SHA-256: `1bf098c5eca2cacd9ccf2b42be8ee256d19ceb2d75e4b08fb007b3d5470e21aa`
-- Flow 01 now contains the observed Outlook filter, Teams URL extraction, exact SharePoint site/list binding, `EventID` duplicate check, and complete queue mappings.
-- Flow 01 is active in the exported solution.
-- The incomplete Flow 02 skeleton is also active; the targeted Flow 02 update must explicitly package it as draft/off.
-- Runtime proof of one complete queue item and a duplicate-free second run remains the final Flow 01 acceptance evidence.
+## Authoritative input contract
 
-## Gate 1: accept Flow 01 queue output
+Flow 02 is triggered by a `MeetingSummaryRuns` item with `Status = Queued` and these required values:
 
-Before connecting Flow 02 to Flow 01:
+| Field | Requirement | Use |
+|---|---|---|
+| `ID` | Positive SharePoint item ID | Updates and Flow 03 handoff |
+| `EventID` | Nonempty and unique | End-to-end business idempotency key |
+| `OrganizerEntraUserID` | Valid Entra object ID | Gateway path parameter |
+| `MeetingID` | Nonempty Graph online-meeting ID | Gateway path parameter |
+| `TranscriptID` | Nonempty Graph transcript ID | Gateway path parameter |
+| `Status` | Exactly `Queued` | Trigger eligibility |
+| `Title` | Nonempty | Summary metadata |
+| `MeetingStart` | Valid date/time when present | Summary metadata |
+| `PromptVersion` | Nonempty or configured fallback | Flow 03 prompt selection |
 
-1. Confirm one eligible meeting creates one `MeetingSummaryRuns` item.
-2. Confirm the item contains `EventID`, `JoinUrl`, `OrganizerEmail`, `OrganizerUserId`, `MeetingStart`, `MeetingEnd`, and `Status = Queued`.
-3. Rerun Flow 01 and confirm no duplicate item is created.
+`JoinURL` and `OrganizerEmail` are not required for transcript retrieval. Organizer email may be retained as optional publication metadata, but it is not part of the Flow 02 gateway contract.
 
-Flow 02 may be built in manual POC mode while this gate is pending, but it must not use the SharePoint queue trigger yet.
+## Shared lifecycle
 
-## Gate 2: establish the Graph gateway boundary
+```text
+Flow 01: Queued
+Flow 02: Queued -> WaitingForTranscript -> TranscriptReady
+                                      \-> TranscriptUnavailable
+                                      \-> Failed
+Flow 03: TranscriptReady -> Summarising -> ReadyToPublish
+Flow 04: ReadyToPublish -> Publishing -> Published
+                                   \-> PublicationFailed
+```
 
-1. Confirm the certificate-authenticated Graph gateway has an approved Development URL.
-2. Import the `ECL Graph Transcript Gateway` custom connector from the repository OpenAPI contract.
-3. Create and add its connection reference to the solution as `ecl_shared_graphgateway`.
-4. Map the function-key connection without embedding the key in the flow or solution source.
-5. Test `ResolveMeeting`, `ListTranscripts`, and `GetTranscriptContent` individually.
+No flow may overwrite a state owned by a later flow.
 
-If the gateway is not deployed, stop at a locally validated Flow 02 package; do not substitute the delegated MCP authoring application for unattended transcript retrieval.
+## Configuration and connections
 
-## Phase 1: rebuild the manual POC flow
+Required environment values:
 
-Retain the current manual inputs:
+- `ecl_GraphGatewayBaseUrl` = approved HTTPS gateway base URL, without a trailing slash;
+- `ecl_GraphGatewayFunctionKey` = environment-specific Azure Function key;
+- `ecl_SharePointSiteUrl`;
+- `ecl_ProcessingListName`;
+- `ecl_PromptVersion`; and
+- bounded HTTP retry settings.
 
-- `JoinUrl`
-- `TestRunId`
+Use native HTTP for the gateway and the existing SharePoint connection. The function key must be passed only in the `x-functions-key` header, treated as a secure value, and masked by secure inputs/outputs. Do not package a live key, connection ID, token, or certificate.
 
-Add or source the approved organizer's Entra user object ID. Initialize:
+## Trigger, lock, and idempotency
 
-- `AttemptCount = 0`
-- `Transcripts = []`
-- `MeetingId = ''`
-- `TranscriptId = ''`
-- `CleanTranscript = ''`
+1. Use `When an item is created or modified` on `MeetingSummaryRuns`.
+2. Apply a trigger condition for `Status = Queued`; do not start runs for unrelated modifications.
+3. Set trigger concurrency to one for the first production release. Increase it only after item-level locking is proven.
+4. Re-read the item at the start of the run.
+5. Validate the required contract fields before any gateway call.
+6. If the current status is no longer `Queued`, terminate as `Ignored` without changing the item.
+7. Update the item to `WaitingForTranscript`, clear prior `ErrorCode` and `ErrorDetails`, and increment `AttemptCount`.
+8. Re-read and confirm the lock before retrieving content. This prevents two queued trigger events from processing the same item.
 
-Set trigger concurrency to one and leave the flow off after import.
+The unique `EventID` prevents duplicate queue records; the status lock prevents duplicate processing of one record.
 
-## Phase 2: resolve the Teams meeting
+## Direct transcript retrieval
 
-Inside `Scope - Try`:
+Call:
 
-1. Call `ResolveMeeting` with `OrganizerUserId` and the exact `JoinUrl`.
-2. Enable secure inputs and outputs on the gateway action.
-3. Require exactly one returned meeting.
-4. Store its Graph meeting ID.
-5. Fail cleanly for zero or multiple matches and retain only sanitized correlation/request IDs.
+```text
+GET {GraphGatewayBaseUrl}/users/{OrganizerEntraUserID}/onlineMeetings/{MeetingID}/transcripts/{TranscriptID}/content
+```
 
-Acceptance: one known organizer-owned scheduled Teams meeting resolves to one Graph online-meeting ID.
+Requirements:
 
-## Phase 3: retry transcript discovery
+1. URI-encode every path value independently.
+2. Send `Accept: text/vtt` and the secure function-key header.
+3. Enable secure inputs and outputs on the HTTP action and every action that directly carries transcript content.
+4. Use a bounded action timeout.
+5. Retry only transient failures: `408`, `429`, and `5xx`; respect `Retry-After` where available.
+6. Treat `400` as `TRANSCRIPT_IDENTIFIERS_INVALID` and `401`/`403` as `TRANSCRIPT_ACCESS_DENIED`; do not retry them indefinitely.
+7. Retry `404` only for a short propagation window because Flow 01 already observed the transcript. If it remains unavailable, end as `TranscriptUnavailable` with `TRANSCRIPT_NOT_AVAILABLE`.
+8. Record only response status, phase, correlation ID, and safe request ID. Never persist the response body in diagnostics.
 
-Replace the current reversed condition/loop structure with:
+## Response normalization
 
-1. An `Until` loop that stops when a transcript exists or maximum attempts is reached.
-2. `ListTranscripts` as the first action inside the loop.
-3. Store `body.value` in `Transcripts`.
-4. Increment and persist `AttemptCount`.
-5. Delay only when the collection is empty and attempts remain.
-6. Use configured retry delay and maximum-attempt values; use fixed POC values only if environment-variable binding remains unavailable.
+The gateway should normally return a `text/vtt` body. Normalize defensively:
 
-Acceptance: available transcripts exit immediately; unavailable transcripts retry predictably and terminate without an infinite loop.
+1. If the HTTP body is a string, use it directly.
+2. If Power Automate supplies a binary envelope with `$content`, base64-decode that value once.
+3. Reject unsupported envelopes with `TRANSCRIPT_RESPONSE_INVALID`.
+4. Remove a leading byte-order mark.
+5. Normalize line endings to `\n`.
+6. Require nonempty content and either a `WEBVTT` header or recognizable cue timing. An empty or structurally invalid body must not be sent to the LLM.
 
-## Phase 4: choose and retrieve the transcript
+## Deterministic WebVTT cleaning
 
-1. If `Transcripts` is empty after retries, terminate successfully as `TranscriptUnavailable` with `TRANSCRIPT_NOT_READY`.
-2. Otherwise select the latest transcript by `createdDateTime`.
-3. Call `GetTranscriptContent` with organizer, meeting, and transcript IDs.
-4. Enable secure inputs and outputs.
-5. Normalize the response: decode `$content` only when a base64 envelope is present; otherwise preserve the text body.
+Implement a sequential line-state loop; do not depend on a broad regex that may delete spoken text.
 
-Acceptance: the flow obtains nonempty WebVTT content for the approved test meeting.
+1. Remove the `WEBVTT` header and header metadata.
+2. Skip complete `NOTE`, `STYLE`, and `REGION` blocks until their terminating blank line.
+3. Skip cue identifier lines only when the following line is a timestamp line.
+4. Remove timestamp lines containing the WebVTT `-->` separator.
+5. Preserve cue payload order, punctuation, Unicode, and speaker labels.
+6. Preserve Teams voice tags or convert them deterministically to a readable `Speaker: utterance` form; never discard the speaker name.
+7. Decode only known WebVTT entities needed for readable text. Do not interpret transcript content as HTML.
+8. Collapse repeated blank lines and trim the result.
+9. Derive `speaker_availability` from the cleaned cues rather than assuming speakers exist.
+10. Reject an empty cleaned result with `TRANSCRIPT_EMPTY_AFTER_CLEANING`.
 
-## Phase 5: clean WebVTT safely
+Test cleaning against fixtures containing multiple speakers, cue IDs, notes, entities, Unicode, missing speaker labels, and multiline utterances.
 
-Remove:
+## Flow 02 to Flow 03 handoff
 
-- `WEBVTT` header;
-- timestamp lines;
-- `NOTE` blocks;
-- `Kind:` and `Language:` metadata; and
-- blank lines.
+After successful cleaning:
 
-Preserve speaker labels, utterance order, punctuation, and uncertainty. Do not store raw transcript content in ordinary run logs or SharePoint during the POC.
+1. Update only the processing item to `Status = TranscriptReady`, preserving identifiers and clearing prior errors.
+2. Invoke Flow 03 as a solution-aware child flow with secure inputs and outputs.
+3. Pass:
+   - `processing_item_id`;
+   - `event_id`;
+   - `title`;
+   - `meeting_start`;
+   - `clean_transcript`;
+   - `speaker_availability`; and
+   - `prompt_version`.
+4. Do not store raw or cleaned transcript text in SharePoint, email, ordinary variables exposed in run history, or error details.
+5. Accept only the documented Flow 03 response contract.
+6. If Flow 03 returns a handled failure, do not replace its SharePoint error with a generic Flow 02 error.
+7. If the child-flow invocation itself fails before Flow 03 owns the record, set `Failed` with `SUMMARY_HANDOFF_FAILED`.
 
-Acceptance: cleaned output matches the repository VTT-cleaning fixture semantics.
+Flow 02 must not set `ProcessedOn` after Flow 03 has advanced the item to a later state.
 
-## Phase 6: add SharePoint queue integration
+## Failure model and recovery
 
-After the manual POC passes:
+| Condition | Final status | Error code | Retry route |
+|---|---|---|---|
+| Required queue field missing | `Failed` | `QUEUE_CONTRACT_INVALID` | Correct item, set `Queued` |
+| Transcript remains absent | `TranscriptUnavailable` | `TRANSCRIPT_NOT_AVAILABLE` | Confirm transcript, set `Queued` |
+| Invalid IDs | `Failed` | `TRANSCRIPT_IDENTIFIERS_INVALID` | Correct source logic |
+| Gateway authorization failure | `Failed` | `TRANSCRIPT_ACCESS_DENIED` | Correct gateway/policy, set `Queued` |
+| Invalid/empty VTT | `Failed` | `TRANSCRIPT_RESPONSE_INVALID` or `TRANSCRIPT_EMPTY_AFTER_CLEANING` | Inspect gateway safely, set `Queued` |
+| Child-flow invocation fails | `Failed` | `SUMMARY_HANDOFF_FAILED` | Set `Queued`; transcript is refetched |
+| Unexpected failure | `Failed` | `TRANSCRIPT_FLOW_FAILED` | Correct cause, set `Queued` |
 
-1. Add `ecl_shared_sharepointonline` to Flow 02.
-2. Replace or supplement the manual trigger with `When an item is created or modified` for `MeetingSummaryRuns`.
-3. Trigger only for `Status = Queued`.
-4. Read `JoinUrl`, `OrganizerUserId`, and `AttemptCount` from the item.
-5. Update statuses in order: `ResolvingMeeting`, `WaitingForTranscript`, then `TranscriptReady` or `TranscriptUnavailable`.
-6. Store `MeetingId`, `TranscriptId`, attempt count, sanitized error information, and `ProcessedOn`.
-7. Keep raw and cleaned transcript text out of SharePoint until the Flow 03 handoff contract is finalized.
+`ErrorDetails` may contain only phase and correlation ID. `ProcessedOn` is set only for terminal failure/unavailable outcomes; success ownership passes to Flow 03.
 
-## Phase 7: failure and finalization behavior
+## Test matrix
 
-- `Scope - Catch` runs after failure or timeout and writes `Status = Failed`, `ErrorCode = TRANSCRIPT_FLOW_FAILED`, sanitized error details, and `ProcessedOn`.
-- `Scope - Finally` runs after every Catch outcome and performs terminal-state consistency checks only.
-- Secrets, function keys, access tokens, transcript bodies, and full connector responses must never be copied into error fields.
+1. One valid queued item retrieves its exact transcript and invokes Flow 03 once.
+2. A second trigger event for the same item terminates as ignored.
+3. Missing organizer, meeting, or transcript ID makes no gateway call.
+4. String and base64 response shapes normalize to identical VTT.
+5. A transient `429` retries within the bound.
+6. A persistent `404` becomes `TranscriptUnavailable`.
+7. `401`/`403` fail without repeated calls.
+8. Cleaning preserves speaker order and all utterance text.
+9. Empty or invalid content never reaches Flow 03.
+10. Transcript content and the function key are absent from visible run history and SharePoint.
+11. Flow 03 failure ownership is preserved.
+12. Requeue after a handled failure produces one new controlled attempt.
 
-## Packaging strategy
+## Packaging and release
 
-1. Use the exported `1.0.0.5` solution as the source baseline.
-2. Package Flow 02 as a targeted update so Flow 03's active unpublished state is not touched.
-3. Increment the solution version for each import attempt.
-4. Keep Flow 02 draft/off after import.
-5. Re-export the successful live correction and use that export as the next repository baseline.
+1. Start from the newest successful export containing Flow 01 version `1.0.0.7`.
+2. Preserve Flow 02 component ID `{72eec559-75a0-f111-b8dc-000d3ab04ac1}`.
+3. Package only Flow 02 and required environment-variable/connection changes.
+4. Leave Flow 02 draft/off after import.
+5. Use environment-specific values during import; never package live secrets.
+6. Run synthetic VTT tests before one approved real transcript.
+7. Enable Flow 02 only after Flow 03 is imported and its child-flow connection is valid.
+8. Re-export the tested solution and make that export the next baseline.
 
-## End-to-end acceptance
+## Definition of done
 
-- Manual POC resolves one scheduled organizer-owned Teams meeting.
-- At least one transcript is listed after the retry window.
-- WebVTT content is retrieved and normalized.
-- Speaker-preserving cleaned text is produced.
-- Queue mode processes one `Queued` item exactly once.
-- Duplicate Flow 01 runs do not create duplicate queue records.
-- Missing transcript ends as `TranscriptUnavailable`, not `Failed`.
-- Unexpected errors end as `Failed` with sanitized diagnostics.
-- Flow 03 remains untouched until Flow 02 passes.
+- Flow 02 uses stored organizer, meeting, and transcript IDs directly.
+- One queue item is processed once despite repeated SharePoint events.
+- Transcript retrieval has bounded, classified retries.
+- WebVTT cleaning loses no spoken content or speaker attribution.
+- Transcript content remains in secure in-memory actions only.
+- Flow 03 receives the complete documented contract exactly once.
+- Every failure has a stable state, code, and explicit recovery path.

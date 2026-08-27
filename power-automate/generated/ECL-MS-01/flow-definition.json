@@ -1,0 +1,337 @@
+{
+  "properties": {
+    "connectionReferences": {
+      "shared_sharepointonline": {
+        "runtimeSource": "embedded",
+        "connection": {
+          "connectionReferenceLogicalName": "ecl_shared_sharepointonline"
+        },
+        "api": {
+          "name": "shared_sharepointonline"
+        }
+      }
+    },
+    "definition": {
+      "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+      "contentVersion": "1.0.0.0",
+      "parameters": {
+        "$authentication": {
+          "type": "SecureObject",
+          "defaultValue": {}
+        },
+        "$connections": {
+          "type": "Object",
+          "defaultValue": {}
+        },
+        "SharePoint Site URL (ecl_SharePointSiteUrl)": {
+          "type": "String",
+          "defaultValue": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery"
+        },
+        "Processing List Name (ecl_ProcessingListName)": {
+          "type": "String",
+          "defaultValue": "51450320-536b-4ba3-b005-7f355e7405d9"
+        },
+        "Graph Gateway Base URL (ecl_GraphGatewayBaseUrl)": {
+          "type": "String",
+          "defaultValue": "https://ecl-graph-gateway.azurewebsites.net/api"
+        },
+        "Graph Gateway Function Key (ecl_GraphGatewayFunctionKey)": {
+          "type": "SecureString"
+        },
+        "Default Organizer Entra User ID (ecl_DefaultOrganizerUserId)": {
+          "type": "String"
+        },
+        "Transcript Discovery Lookback Minutes (ecl_TranscriptDiscoveryLookbackMinutes)": {
+          "type": "Int",
+          "defaultValue": 180
+        },
+        "Prompt Version (ecl_PromptVersion)": {
+          "type": "String",
+          "defaultValue": "v1"
+        }
+      },
+      "triggers": {
+        "Recurrence": {
+          "type": "Recurrence",
+          "recurrence": {
+            "frequency": "Minute",
+            "interval": 15,
+            "timeZone": "UTC"
+          },
+          "runtimeConfiguration": {
+            "concurrency": {
+              "runs": 1
+            }
+          }
+        }
+      },
+      "actions": {
+        "Initialize_WindowStart": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "WindowStart",
+                "type": "string",
+                "value": "@formatDateTime(addMinutes(utcNow(), mul(-1, int(parameters('Transcript Discovery Lookback Minutes (ecl_TranscriptDiscoveryLookbackMinutes)')))), 'yyyy-MM-ddTHH:mm:ssZ')"
+              }
+            ]
+          },
+          "runAfter": {}
+        },
+        "Initialize_WindowEnd": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "WindowEnd",
+                "type": "string",
+                "value": "@formatDateTime(utcNow(), 'yyyy-MM-ddTHH:mm:ssZ')"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_WindowStart": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Initialize_CorrelationId": {
+          "type": "InitializeVariable",
+          "inputs": {
+            "variables": [
+              {
+                "name": "CorrelationId",
+                "type": "string",
+                "value": "@guid()"
+              }
+            ]
+          },
+          "runAfter": {
+            "Initialize_WindowEnd": [
+              "Succeeded"
+            ]
+          }
+        },
+        "Try": {
+          "type": "Scope",
+          "runAfter": {
+            "Initialize_CorrelationId": [
+              "Succeeded"
+            ]
+          },
+          "actions": {
+            "For_each_enabled_organizer": {
+              "type": "Foreach",
+              "foreach": "@createArray(parameters('Default Organizer Entra User ID (ecl_DefaultOrganizerUserId)'))",
+              "runtimeConfiguration": {
+                "concurrency": {
+                  "repetitions": 1
+                }
+              },
+              "runAfter": {},
+              "actions": {
+                "Organizer_Try": {
+                  "type": "Scope",
+                  "runAfter": {},
+                  "actions": {
+                    "Discover_Teams_Transcripts": {
+                      "type": "Http",
+                      "inputs": {
+                        "method": "GET",
+                        "uri": "@concat(parameters('Graph Gateway Base URL (ecl_GraphGatewayBaseUrl)'), '/users/', encodeUriComponent(items('For_each_enabled_organizer')), '/transcripts/discover?startDateTime=', encodeUriComponent(variables('WindowStart')), '&endDateTime=', encodeUriComponent(variables('WindowEnd')))",
+                        "headers": {
+                          "x-functions-key": "@parameters('Graph Gateway Function Key (ecl_GraphGatewayFunctionKey)')"
+                        }
+                      },
+                      "runtimeConfiguration": {
+                        "secureData": {
+                          "properties": [
+                            "inputs",
+                            "outputs"
+                          ]
+                        }
+                      },
+                      "runAfter": {}
+                    },
+                    "Select_Meeting_IDs": {
+                      "type": "Select",
+                      "inputs": {
+                        "from": "@coalesce(body('Discover_Teams_Transcripts')?['value'], json('[]'))",
+                        "select": {
+                          "meetingId": "@item()?['meetingId']"
+                        }
+                      },
+                      "runAfter": {
+                        "Discover_Teams_Transcripts": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "Unique_Meeting_IDs": {
+                      "type": "Compose",
+                      "inputs": "@union(body('Select_Meeting_IDs'), body('Select_Meeting_IDs'))",
+                      "runAfter": {
+                        "Select_Meeting_IDs": [
+                          "Succeeded"
+                        ]
+                      }
+                    },
+                    "For_each_discovered_meeting": {
+                      "type": "Foreach",
+                      "foreach": "@outputs('Unique_Meeting_IDs')",
+                      "runtimeConfiguration": {
+                        "concurrency": {
+                          "repetitions": 1
+                        }
+                      },
+                      "runAfter": {
+                        "Unique_Meeting_IDs": [
+                          "Succeeded"
+                        ]
+                      },
+                      "actions": {
+                        "Filter_Transcripts_For_Meeting": {
+                          "type": "Query",
+                          "inputs": {
+                            "from": "@coalesce(body('Discover_Teams_Transcripts')?['value'], json('[]'))",
+                            "where": "@equals(item()?['meetingId'], items('For_each_discovered_meeting')?['meetingId'])"
+                          },
+                          "runAfter": {}
+                        },
+                        "Select_Latest_Discovered_Transcript": {
+                          "type": "Compose",
+                          "inputs": "@last(sort(body('Filter_Transcripts_For_Meeting'), 'createdDateTime'))",
+                          "runAfter": {
+                            "Filter_Transcripts_For_Meeting": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "Get_Teams_Meeting": {
+                          "type": "Http",
+                          "inputs": {
+                            "method": "GET",
+                            "uri": "@concat(parameters('Graph Gateway Base URL (ecl_GraphGatewayBaseUrl)'), '/users/', encodeUriComponent(items('For_each_enabled_organizer')), '/onlineMeetings/', encodeUriComponent(items('For_each_discovered_meeting')?['meetingId']))",
+                            "headers": {
+                              "x-functions-key": "@parameters('Graph Gateway Function Key (ecl_GraphGatewayFunctionKey)')"
+                            }
+                          },
+                          "runtimeConfiguration": {
+                            "secureData": {
+                              "properties": [
+                                "inputs",
+                                "outputs"
+                              ]
+                            }
+                          },
+                          "runAfter": {
+                            "Select_Latest_Discovered_Transcript": [
+                              "Succeeded"
+                            ]
+                          }
+                        },
+                        "If_Eligible_Scheduled_Meeting": {
+                          "type": "If",
+                          "expression": "@and(equals(toLower(coalesce(body('Get_Teams_Meeting')?['organizer']?['id'], '')), toLower(items('For_each_enabled_organizer'))), or(empty(body('Get_Teams_Meeting')?['meetingType']), equals(toLower(body('Get_Teams_Meeting')?['meetingType']), 'scheduled')), not(empty(body('Get_Teams_Meeting')?['joinWebUrl'])))",
+                          "runAfter": {
+                            "Get_Teams_Meeting": [
+                              "Succeeded"
+                            ]
+                          },
+                          "actions": {
+                            "Get_existing_queue_item": {
+                              "type": "OpenApiConnection",
+                              "inputs": {
+                                "host": {
+                                  "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                  "connectionName": "shared_sharepointonline",
+                                  "operationId": "GetItems"
+                                },
+                                "parameters": {
+                                  "dataset": "@parameters('SharePoint Site URL (ecl_SharePointSiteUrl)')",
+                                  "table": "@parameters('Processing List Name (ecl_ProcessingListName)')",
+                                  "$filter": "@concat('EventID eq ''', replace(items('For_each_discovered_meeting')?['meetingId'], '''', ''''''), '''')",
+                                  "$top": 1
+                                }
+                              },
+                              "runAfter": {}
+                            },
+                            "If_not_already_queued": {
+                              "type": "If",
+                              "expression": "@equals(length(outputs('Get_existing_queue_item')?['body/value']), 0)",
+                              "runAfter": {
+                                "Get_existing_queue_item": [
+                                  "Succeeded"
+                                ]
+                              },
+                              "actions": {
+                                "Create_queue_item": {
+                                  "type": "OpenApiConnection",
+                                  "inputs": {
+                                    "host": {
+                                      "apiId": "/providers/Microsoft.PowerApps/apis/shared_sharepointonline",
+                                      "connectionName": "shared_sharepointonline",
+                                      "operationId": "PostItem"
+                                    },
+                                    "parameters": {
+                                      "dataset": "@parameters('SharePoint Site URL (ecl_SharePointSiteUrl)')",
+                                      "table": "@parameters('Processing List Name (ecl_ProcessingListName)')",
+                                      "item/Title": "@coalesce(body('Get_Teams_Meeting')?['subject'], 'Untitled Teams meeting')",
+                                      "item/EventID": "@items('For_each_discovered_meeting')?['meetingId']",
+                                      "item/SourceType/Value": "TeamsTranscript",
+                                      "item/JoinURL": "@body('Get_Teams_Meeting')?['joinWebUrl']",
+                                      "item/OrganizerEntraUserID": "@items('For_each_enabled_organizer')",
+                                      "item/MeetingStart": "@body('Get_Teams_Meeting')?['startDateTime']",
+                                      "item/MeetingEnd": "@body('Get_Teams_Meeting')?['endDateTime']",
+                                      "item/MeetingID": "@items('For_each_discovered_meeting')?['meetingId']",
+                                      "item/TranscriptID": "@outputs('Select_Latest_Discovered_Transcript')?['id']",
+                                      "item/Status/Value": "Queued",
+                                      "item/AttemptCount": 0,
+                                      "item/ApprovalStarted": false,
+                                      "item/PromptVersion": "@parameters('Prompt Version (ecl_PromptVersion)')"
+                                    }
+                                  },
+                                  "runAfter": {}
+                                }
+                              },
+                              "else": {
+                                "actions": {}
+                              }
+                            }
+                          },
+                          "else": {
+                            "actions": {}
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "Catch": {
+          "type": "Scope",
+          "actions": {
+            "Compose_sanitized_failure": {
+              "type": "Compose",
+              "inputs": "@concat('DISPATCH_FAILED:', variables('CorrelationId'))",
+              "runAfter": {}
+            }
+          },
+          "runAfter": {
+            "Try": [
+              "Failed",
+              "TimedOut"
+            ]
+          }
+        }
+      },
+      "outputs": {}
+    },
+    "templateName": null
+  },
+  "schemaVersion": "1.0.0.0"
+}

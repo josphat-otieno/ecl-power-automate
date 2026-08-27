@@ -1,0 +1,11 @@
+<environmentvariabledefinition schemaname="ecl_TranscriptDiscoveryLookbackMinutes">
+  <defaultvalue>180</defaultvalue>
+  <displayname default="Transcript Discovery Lookback (Minutes)">
+    <label description="Transcript Discovery Lookback (Minutes)" languagecode="1033" />
+  </displayname>
+  <introducedversion>1.0.0.7</introducedversion>
+  <iscustomizable>1</iscustomizable>
+  <isrequired>0</isrequired>
+  <secretstore>0</secretstore>
+  <type>100000001</type>
+</environmentvariabledefinition>

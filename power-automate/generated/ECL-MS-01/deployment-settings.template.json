@@ -1,0 +1,14 @@
+{
+  "environmentVariables": {
+    "ecl_SharePointSiteUrl": "https://elewacompanyltd.sharepoint.com/sites/ProjectsDelivery",
+    "ecl_ProcessingListName": "51450320-536b-4ba3-b005-7f355e7405d9",
+    "ecl_GraphGatewayBaseUrl": "https://ecl-graph-gateway.azurewebsites.net/api",
+    "ecl_GraphGatewayFunctionKey": "REPLACE-WITH-AZURE-FUNCTION-KEY",
+    "ecl_DefaultOrganizerUserId": "REPLACE-WITH-ORGANIZER-ENTRA-USER-ID",
+    "ecl_TranscriptDiscoveryLookbackMinutes": 180,
+    "ecl_PromptVersion": "v1"
+  },
+  "connectionReferences": {
+    "ecl_shared_sharepointonline": "MAP-DURING-IMPORT"
+  }
+}

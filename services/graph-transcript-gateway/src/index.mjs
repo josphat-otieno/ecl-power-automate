@@ -62,6 +62,73 @@ app.http("resolveMeeting", {
   }
 });
 
+app.http("getMeeting", {
+  methods: ["GET"],
+  authLevel: "function",
+  route: "users/{organizerUserId}/onlineMeetings/{meetingId}",
+  handler: async (request, context) => {
+    try {
+      const meeting = await (await graphClient()).getMeeting(
+        request.params.organizerUserId,
+        request.params.meetingId
+      );
+      return {
+        jsonBody: {
+          id: meeting.id,
+          subject: meeting.subject ?? null,
+          joinWebUrl: meeting.joinWebUrl ?? null,
+          startDateTime: meeting.startDateTime ?? null,
+          endDateTime: meeting.endDateTime ?? null,
+          meetingType: meeting.meetingType ?? null,
+          organizer: meeting.participants?.organizer?.identity?.user
+            ? {
+                id: meeting.participants.organizer.identity.user.id ?? null,
+                displayName: meeting.participants.organizer.identity.user.displayName ?? null
+              }
+            : null
+        }
+      };
+    } catch (error) {
+      return errorResponse(error, context.invocationId);
+    }
+  }
+});
+
+app.http("discoverTranscripts", {
+  methods: ["GET"],
+  authLevel: "function",
+  route: "users/{organizerUserId}/transcripts/discover",
+  handler: async (request, context) => {
+    try {
+      const result = await (await graphClient()).discoverTranscripts(
+        request.params.organizerUserId,
+        request.query.get("startDateTime"),
+        request.query.get("endDateTime"),
+        request.query.get("checkpoint")
+      );
+      return {
+        jsonBody: {
+          value: result.value.map((transcript) => ({
+            id: transcript.id,
+            meetingId: transcript.meetingId ?? null,
+            createdDateTime: transcript.createdDateTime ?? null,
+            endDateTime: transcript.endDateTime ?? null,
+            meetingOrganizer: transcript.meetingOrganizer?.user
+              ? {
+                  id: transcript.meetingOrganizer.user.id ?? null,
+                  displayName: transcript.meetingOrganizer.user.displayName ?? null
+                }
+              : null
+          })),
+          deltaLink: result.deltaLink ?? null
+        }
+      };
+    } catch (error) {
+      return errorResponse(error, context.invocationId);
+    }
+  }
+});
+
 app.http("listTranscripts", {
   methods: ["GET"],
   authLevel: "function",

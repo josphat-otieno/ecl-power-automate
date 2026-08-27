@@ -12,8 +12,9 @@
     "environmentVariables": [
       { "name": "ecl_GraphBaseUrl", "displayName": "Graph Base URL", "type": "String", "default": "https://graph.microsoft.com/v1.0" },
       { "name": "ecl_GraphGatewayBaseUrl", "displayName": "Graph Transcript Gateway Base URL", "type": "String", "default": "https://REPLACE-WITH-FUNCTION-APP.azurewebsites.net/api" },
-      { "name": "ecl_DefaultOrganizerUserId", "displayName": "Default Organizer Entra User ID", "type": "String", "default": "c07b7048-a9b1-480a-b4db-f7c20ada7b77" },
-      { "name": "ecl_DefaultOrganizerEmail", "displayName": "Default Organizer Email", "type": "String", "default": "josephat@elewa.ke" },
+      { "name": "ecl_DefaultOrganizerUserId", "displayName": "Default Organizer Entra User ID", "type": "String" },
+      { "name": "ecl_DefaultOrganizerEmail", "displayName": "Default Organizer Email (Legacy)", "type": "String" },
+      { "name": "ecl_TranscriptDiscoveryLookbackMinutes", "displayName": "Transcript Discovery Lookback (Minutes)", "type": "Number", "default": 180 },
       { "name": "ecl_TranscriptInitialDelayMinutes", "displayName": "Transcript Initial Delay (Minutes)", "type": "Number", "default": 15 },
       { "name": "ecl_TranscriptRetryDelayMinutes", "displayName": "Transcript Retry Delay (Minutes)", "type": "Number", "default": 5 },
       { "name": "ecl_TranscriptMaximumAttempts", "displayName": "Transcript Maximum Attempts", "type": "Number", "default": 6 },
@@ -35,7 +36,7 @@
       { "name": "ecl_shared_graphgateway", "displayName": "Graph Transcript Gateway Connection", "connectorId": "ecl_graph_transcript_gateway" }
     ],
     "flows": [
-      { "id": "ECL-MS-01", "name": "ECL-MS-01 – Dispatch Completed Meetings", "type": "Scheduled" },
+      { "id": "ECL-MS-01", "name": "ECL-MS-01 – Dispatch Available Teams Transcripts", "type": "Scheduled" },
       { "id": "ECL-MS-02", "name": "ECL-MS-02 – Retrieve Teams Transcript", "type": "Automated" },
       { "id": "ECL-MS-03", "name": "ECL-MS-03 – Summarise Meeting Transcript", "type": "ChildFlow" },
       { "id": "ECL-MS-04", "name": "ECL-MS-04 – Approve and Publish Summary", "type": "Automated" },
